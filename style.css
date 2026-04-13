@@ -846,6 +846,10 @@ body {
   transform: rotateY(180deg);
 }
 
+.service-card.is-shaking {
+  animation: cardShakeSide 0.42s ease-in-out;
+}
+
 .card-face {
   position: absolute;
   inset: 0;
@@ -1493,6 +1497,33 @@ body {
     opacity: 1;
     transform: translateY(0) scale(1) rotateX(0);
     filter: blur(0);
+  }
+}
+
+@keyframes cardShakeSide {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  15% {
+    transform: translateX(-10px);
+  }
+
+  30% {
+    transform: translateX(10px);
+  }
+
+  45% {
+    transform: translateX(-8px);
+  }
+
+  60% {
+    transform: translateX(8px);
+  }
+
+  75% {
+    transform: translateX(-4px);
   }
 }
 

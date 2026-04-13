@@ -2,6 +2,8 @@ const HOME_PAGE = 'index2.html';
 const REBUILD_DURATION = 1100;
 const SERVICE_TRANSITION_DURATION = 850;
 const SERVICE_LOAD_TIMEOUT = 10000;
+const CARD_FLIP_INTERVAL = 2000;
+const CARD_SHAKE_DURATION = 420;
 const IDLE_TIMEOUT = 12000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 6;
@@ -204,6 +206,7 @@ function setupChildView() {
     idleActive = true;
     cards.forEach((card) => {
       card.classList.remove('flipped');
+      card.classList.remove('is-shaking');
     });
     trackingMain.classList.add('is-idle');
     cycleIdleLogoAnimation();
@@ -236,37 +239,74 @@ function setupChildView() {
   });
 
   cards.forEach((card) => {
-    let hoverTimer = null;
+    let flipInterval = null;
+    let launchTimer = null;
     const url = card.dataset.url;
     const title = card.dataset.title;
 
-    const clearFlipTimer = () => {
-      if (hoverTimer) {
-        window.clearTimeout(hoverTimer);
-        hoverTimer = null;
+    const clearFlipCycle = () => {
+      if (flipInterval) {
+        window.clearInterval(flipInterval);
+        flipInterval = null;
       }
     };
 
-    card.addEventListener('pointerenter', () => {
-      exitIdleMode();
-      clearFlipTimer();
-      hoverTimer = window.setTimeout(() => {
-        card.classList.add('flipped');
-      }, 5000);
-    });
+    const clearLaunchTimer = () => {
+      if (launchTimer) {
+        window.clearTimeout(launchTimer);
+        launchTimer = null;
+      }
+    };
 
-    card.addEventListener('pointerleave', () => {
-      clearFlipTimer();
-      card.classList.remove('flipped');
-    });
+    const startFlipCycle = () => {
+      clearFlipCycle();
+      card.classList.toggle('flipped');
+      flipInterval = window.setInterval(() => {
+        card.classList.toggle('flipped');
+      }, CARD_FLIP_INTERVAL);
+    };
 
-    card.addEventListener('click', () => {
+    const launchService = () => {
       if (window.parent !== window) {
         window.parent.postMessage({ type: 'open-service', url, title }, '*');
         return;
       }
 
       window.location.href = url;
+    };
+
+    card.addEventListener('pointerenter', () => {
+      exitIdleMode();
+      if (card.classList.contains('is-launching')) {
+        return;
+      }
+
+      startFlipCycle();
+    });
+
+    card.addEventListener('pointerleave', () => {
+      if (card.classList.contains('is-launching')) {
+        return;
+      }
+
+      clearFlipCycle();
+      card.classList.remove('flipped');
+    });
+
+    card.addEventListener('click', () => {
+      if (card.classList.contains('is-launching')) {
+        return;
+      }
+
+      exitIdleMode();
+      clearFlipCycle();
+      clearLaunchTimer();
+      card.classList.add('is-shaking', 'is-launching');
+      launchTimer = window.setTimeout(() => {
+        card.classList.remove('is-shaking');
+        card.classList.remove('is-launching');
+        launchService();
+      }, CARD_SHAKE_DURATION);
     });
   });
 
