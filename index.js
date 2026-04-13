@@ -3,7 +3,7 @@ const REBUILD_DURATION = 1100;
 const SERVICE_TRANSITION_DURATION = 850;
 const SERVICE_LOAD_TIMEOUT = 10000;
 const CARD_FLIP_INTERVAL = 2000;
-const CARD_SHAKE_DURATION = 420;
+const CARD_SHAKE_DURATION = 1000;
 const IDLE_TIMEOUT = 12000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 6;
@@ -14,8 +14,13 @@ function isHomeView(url) {
   return typeof url === 'string' && url.includes(HOME_PAGE);
 }
 
-function shouldOpenInPopup(url) {
+function isTrackingService(url) {
   return typeof url === 'string' && url.toLowerCase().includes('trackingbo');
+}
+
+function isHighRiskService(url) {
+  const normalizedUrl = (url || '').toLowerCase();
+  return normalizedUrl.includes('postar.correos.gob.bo:8104') || normalizedUrl.includes('sireco.correos.gob.bo:8102');
 }
 
 function logServiceEvent(level, message, details = {}) {
@@ -23,6 +28,24 @@ function logServiceEvent(level, message, details = {}) {
   const payload = { timestamp, ...details };
   const logger = console[level] || console.log;
   logger(`[KIOSCO_AGBC] ${message}`, payload);
+}
+
+function applyTimeOfDayTheme() {
+  const hour = new Date().getHours();
+  const root = document.documentElement;
+  const progress = Math.min(Math.max((hour - 7) / 9, 0), 1);
+  const inverse = 1 - progress;
+  const hueA = Math.round(46 + (inverse * 6));
+  const hueB = Math.round(212 - (progress * 12));
+  const satA = Math.round(92 - (progress * 18));
+  const satB = Math.round(64 + (progress * 8));
+  const lightA = Math.round(64 - (progress * 26));
+  const lightB = Math.round(32 + (progress * 10));
+  const glow = (0.22 + (inverse * 0.24)).toFixed(2);
+
+  root.style.setProperty('--sky-accent', `hsl(${hueA} ${satA}% ${lightA}%)`);
+  root.style.setProperty('--sky-deep', `hsl(${hueB} ${satB}% ${lightB}%)`);
+  root.style.setProperty('--sky-glow', `rgba(255, 243, 187, ${glow})`);
 }
 
 function getServiceDiagnostics(url, title) {
@@ -240,11 +263,17 @@ function setupChildView() {
 
   cards.forEach((card) => {
     let flipInterval = null;
+    let flipStartTimer = null;
     let launchTimer = null;
     const url = card.dataset.url;
     const title = card.dataset.title;
 
     const clearFlipCycle = () => {
+      if (flipStartTimer) {
+        window.clearTimeout(flipStartTimer);
+        flipStartTimer = null;
+      }
+
       if (flipInterval) {
         window.clearInterval(flipInterval);
         flipInterval = null;
@@ -260,9 +289,11 @@ function setupChildView() {
 
     const startFlipCycle = () => {
       clearFlipCycle();
-      card.classList.toggle('flipped');
-      flipInterval = window.setInterval(() => {
+      flipStartTimer = window.setTimeout(() => {
         card.classList.toggle('flipped');
+        flipInterval = window.setInterval(() => {
+          card.classList.toggle('flipped');
+        }, CARD_FLIP_INTERVAL);
       }, CARD_FLIP_INTERVAL);
     };
 
@@ -342,11 +373,6 @@ function setupParentShell() {
   let pendingServiceUrl = null;
   let serviceLoadTimer = null;
   let serviceLoadStartedAt = null;
-  const serviceErrorTitle = document.getElementById('serviceErrorTitle');
-  const serviceErrorMessage = document.getElementById('serviceErrorMessage');
-  const serviceErrorDetails = document.getElementById('serviceErrorDetails');
-  const serviceRetryButton = document.getElementById('serviceRetryButton');
-  const serviceHomeButton = document.getElementById('serviceHomeButton');
   const externalServiceOverlay = document.getElementById('externalServiceOverlay');
   const externalServiceTitle = document.getElementById('externalServiceTitle');
   const externalServiceMessage = document.getElementById('externalServiceMessage');
@@ -356,10 +382,6 @@ function setupParentShell() {
   const externalServiceFrame = document.getElementById('externalServiceFrame');
   let pendingExternalUrl = null;
   let pendingExternalTitle = null;
-
-  if (!serviceErrorTitle || !serviceErrorMessage || !serviceErrorDetails || !serviceRetryButton || !serviceHomeButton) {
-    return;
-  }
 
   if (
     !externalServiceOverlay ||
@@ -408,17 +430,22 @@ function setupParentShell() {
 
   const hideServiceError = () => {
     serviceErrorState.hidden = true;
+    serviceErrorState.classList.remove('is-loading');
     frameStage.classList.remove('has-service-error');
+  };
+
+  const showServiceLoading = () => {
+    serviceErrorState.hidden = false;
+    serviceErrorState.classList.add('is-loading');
+    frameStage.classList.add('has-service-error');
   };
 
   const showServiceError = () => {
     clearServiceLoadTimer();
     const diagnostics = getServiceDiagnostics(currentServiceUrl, currentServiceTitle);
     const elapsedMs = serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : null;
-    serviceErrorTitle.textContent = diagnostics.title;
-    serviceErrorMessage.textContent = diagnostics.message;
-    serviceErrorDetails.textContent = diagnostics.details;
     serviceErrorState.hidden = false;
+    serviceErrorState.classList.remove('is-loading');
     frameStage.classList.add('has-service-error');
     frameStage.classList.remove('is-transitioning');
     logServiceEvent('error', 'Error al cargar servicio en iframe', {
@@ -428,6 +455,51 @@ function setupParentShell() {
       diagnostics,
       hint: 'Revisa la pestana Network y la consola del navegador para errores de TLS, conexion o bloqueo de iframe.',
     });
+  };
+
+  const frameShowsBrowserError = () => {
+    try {
+      const frameWindow = frame.contentWindow;
+      const frameDocument = frame.contentDocument;
+      const frameHref = frameWindow?.location?.href || '';
+      const frameTitle = (frameDocument?.title || '').toLowerCase();
+      const frameBodyText = (frameDocument?.body?.innerText || '').slice(0, 800).toLowerCase();
+      const frameBodyHtml = (frameDocument?.body?.innerHTML || '').slice(0, 1200).toLowerCase();
+      const bodyChildrenCount = frameDocument?.body?.children?.length || 0;
+      const bodyImageCount = frameDocument?.body?.querySelectorAll?.('img, svg, canvas, iframe, embed, object')?.length || 0;
+      const bodyLinkCount = frameDocument?.body?.querySelectorAll?.('a, button, input, form')?.length || 0;
+      const looksBlank =
+        bodyChildrenCount <= 1 &&
+        bodyImageCount === 0 &&
+        bodyLinkCount === 0 &&
+        frameBodyText.trim().length < 40;
+
+      if (
+        frameHref.startsWith('chrome-error://') ||
+        frameHref.startsWith('edge-error://') ||
+        frameHref === 'about:blank'
+      ) {
+        return true;
+      }
+
+      return (
+        frameTitle.includes('site can') ||
+        frameTitle.includes('problem loading') ||
+        frameTitle.includes('no se puede acceder') ||
+        frameTitle.includes('this page isn') ||
+        frameTitle.includes('error') ||
+        frameBodyText.includes('this page isn') ||
+        frameBodyText.includes('site can') ||
+        frameBodyText.includes('err_') ||
+        frameBodyText.includes('no se puede acceder') ||
+        frameBodyHtml.includes('chrome-error') ||
+        frameBodyHtml.includes('main-frame-error') ||
+        frameBodyHtml.includes('neterror') ||
+        looksBlank
+      );
+    } catch (error) {
+      return false;
+    }
   };
 
   const finalizeHomeView = () => {
@@ -460,9 +532,8 @@ function setupParentShell() {
       return;
     }
 
-    if (shouldOpenInPopup(url)) {
-      showExternalOverlay(url, title || 'TrackingBO');
-      return;
+    if (isTrackingService(url)) {
+      hideExternalOverlay();
     }
 
     hideExternalOverlay();
@@ -470,10 +541,10 @@ function setupParentShell() {
     currentServiceTitle = title || 'Servicio AGBC';
     pendingServiceUrl = url;
     serviceLoadStartedAt = Date.now();
-    hideServiceError();
     updateHeader(currentServiceTitle, true);
     frameStage.classList.remove('is-rebuilding');
     frameStage.classList.add('is-transitioning');
+    showServiceLoading();
     logServiceEvent('info', 'Iniciando carga de servicio', {
       url,
       title: currentServiceTitle,
@@ -545,15 +616,50 @@ function setupParentShell() {
 
     if (pendingServiceUrl && frameUrl === pendingServiceUrl) {
       window.setTimeout(() => {
-        clearServiceLoadTimer();
-        hideServiceError();
-        frameStage.classList.remove('is-transitioning');
-        updateHeader(currentServiceTitle, true);
-        logServiceEvent('info', 'Servicio cargado en iframe', {
-          url: currentServiceUrl,
-          title: currentServiceTitle,
-          elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
-        });
+        if (frameShowsBrowserError()) {
+          logServiceEvent('error', 'El iframe cargo una pagina de error del navegador', {
+            url: currentServiceUrl,
+            title: currentServiceTitle,
+            elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
+          });
+          showServiceError();
+          return;
+        }
+
+        if (isHighRiskService(currentServiceUrl)) {
+          try {
+            const bodyText = (frame.contentDocument?.body?.innerText || '').trim();
+            const bodyMediaCount = frame.contentDocument?.body?.querySelectorAll?.('img, svg, canvas, iframe, embed, object')?.length || 0;
+            const bodyInteractiveCount = frame.contentDocument?.body?.querySelectorAll?.('a, button, input, form, select, textarea')?.length || 0;
+
+            if (bodyText.length < 60 && bodyMediaCount === 0 && bodyInteractiveCount === 0) {
+              logServiceEvent('error', 'El iframe cargo contenido no visible o vacio para un servicio de alto riesgo', {
+                url: currentServiceUrl,
+                title: currentServiceTitle,
+                elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
+              });
+              showServiceError();
+              return;
+            }
+          } catch (error) {
+            logServiceEvent('warn', 'No se pudo verificar visibilidad interna del servicio de alto riesgo; se mantiene validacion normal', {
+              url: currentServiceUrl,
+              title: currentServiceTitle,
+            });
+          }
+        }
+
+        window.setTimeout(() => {
+          clearServiceLoadTimer();
+          hideServiceError();
+          frameStage.classList.remove('is-transitioning');
+          updateHeader(currentServiceTitle, true);
+          logServiceEvent('info', 'Servicio cargado en iframe', {
+            url: currentServiceUrl,
+            title: currentServiceTitle,
+            elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
+          });
+        }, 220);
       }, SERVICE_TRANSITION_DURATION);
     }
   });
@@ -566,18 +672,6 @@ function setupParentShell() {
     });
     showServiceError();
   });
-
-  serviceRetryButton.addEventListener('click', () => {
-    logServiceEvent('warn', 'Reintento manual solicitado', {
-      url: currentServiceUrl,
-      title: currentServiceTitle,
-    });
-    if (currentServiceUrl && !isHomeView(currentServiceUrl)) {
-      openService(currentServiceUrl, currentServiceTitle);
-    }
-  });
-
-  serviceHomeButton.addEventListener('click', goHome);
 
   externalServiceCancel.addEventListener('click', () => {
     logServiceEvent('info', 'Cierre de modal solicitado por el usuario', {
@@ -635,6 +729,8 @@ function setupParentShell() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  applyTimeOfDayTheme();
+  window.setInterval(applyTimeOfDayTheme, 60000);
   setupChildView();
   setupParentShell();
 });
