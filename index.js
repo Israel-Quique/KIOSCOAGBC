@@ -312,13 +312,24 @@ function setupParentShell() {
   const externalServiceMessage = document.getElementById('externalServiceMessage');
   const externalServiceConfirm = document.getElementById('externalServiceConfirm');
   const externalServiceCancel = document.getElementById('externalServiceCancel');
+  const externalServiceClose = document.getElementById('externalServiceClose');
+  const externalServiceFrame = document.getElementById('externalServiceFrame');
   let pendingExternalUrl = null;
   let pendingExternalTitle = null;
 
   if (!serviceErrorTitle || !serviceErrorMessage || !serviceErrorDetails || !serviceRetryButton || !serviceHomeButton) {
     return;
   }
-  if (!externalServiceOverlay || !externalServiceTitle || !externalServiceMessage || !externalServiceConfirm || !externalServiceCancel) {
+
+  if (
+    !externalServiceOverlay ||
+    !externalServiceTitle ||
+    !externalServiceMessage ||
+    !externalServiceConfirm ||
+    !externalServiceCancel ||
+    !externalServiceClose ||
+    !externalServiceFrame
+  ) {
     return;
   }
 
@@ -336,6 +347,7 @@ function setupParentShell() {
 
   const hideExternalOverlay = () => {
     externalServiceOverlay.hidden = true;
+    externalServiceFrame.src = 'about:blank';
     pendingExternalUrl = null;
     pendingExternalTitle = null;
   };
@@ -344,12 +356,13 @@ function setupParentShell() {
     pendingExternalUrl = url;
     pendingExternalTitle = title || 'Servicio AGBC';
     externalServiceTitle.textContent = pendingExternalTitle;
-    externalServiceMessage.textContent = `${pendingExternalTitle} no permite abrirse dentro del kiosco. Puedes abrirlo en esta misma pestaña para continuar.`;
+    externalServiceMessage.textContent = `${pendingExternalTitle} se abrira sobre el kiosco, sin salir de esta pantalla.`;
     externalServiceOverlay.hidden = false;
-    logServiceEvent('warn', 'Servicio requiere apertura en la misma pestana fuera del iframe', {
+    externalServiceFrame.src = url;
+    logServiceEvent('info', 'Servicio abierto en modal embebido', {
       url,
       title: pendingExternalTitle,
-      reason: 'Bloqueo de iframe por politica del servidor externo.',
+      mode: 'overlay-iframe',
     });
   };
 
@@ -412,6 +425,7 @@ function setupParentShell() {
       return;
     }
 
+    hideExternalOverlay();
     currentServiceUrl = url;
     currentServiceTitle = title || 'Servicio AGBC';
     pendingServiceUrl = url;
@@ -462,6 +476,11 @@ function setupParentShell() {
   homeButton.addEventListener('click', goHome);
 
   backButton.addEventListener('click', () => {
+    if (!externalServiceOverlay.hidden) {
+      hideExternalOverlay();
+      return;
+    }
+
     if (!isHomeView(currentServiceUrl)) {
       goHome();
     }
@@ -507,6 +526,7 @@ function setupParentShell() {
     });
     showServiceError();
   });
+
   serviceRetryButton.addEventListener('click', () => {
     logServiceEvent('warn', 'Reintento manual solicitado', {
       url: currentServiceUrl,
@@ -516,24 +536,35 @@ function setupParentShell() {
       openService(currentServiceUrl, currentServiceTitle);
     }
   });
+
   serviceHomeButton.addEventListener('click', goHome);
+
   externalServiceCancel.addEventListener('click', () => {
-    logServiceEvent('info', 'Apertura externa cancelada por el usuario', {
+    logServiceEvent('info', 'Cierre de modal solicitado por el usuario', {
       url: pendingExternalUrl,
       title: pendingExternalTitle,
     });
     hideExternalOverlay();
   });
+
+  externalServiceClose.addEventListener('click', hideExternalOverlay);
+
   externalServiceConfirm.addEventListener('click', () => {
     if (!pendingExternalUrl) {
       return;
     }
 
-    logServiceEvent('info', 'Abriendo servicio externo en la misma pestana', {
+    logServiceEvent('info', 'Recargando servicio dentro del modal', {
       url: pendingExternalUrl,
       title: pendingExternalTitle,
     });
-    window.location.href = pendingExternalUrl;
+    externalServiceFrame.src = pendingExternalUrl;
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !externalServiceOverlay.hidden) {
+      hideExternalOverlay();
+    }
   });
 
   window.addEventListener('message', (event) => {

@@ -71,18 +71,32 @@
     </section>
   </main>
 
-  <div class="external-service-overlay" id="externalServiceOverlay" hidden>
+  <div class="external-service-overlay external-service-overlay--modal" id="externalServiceOverlay" hidden>
     <div class="external-service-overlay__backdrop"></div>
     <section class="external-service-overlay__panel" role="dialog" aria-modal="true" aria-labelledby="externalServiceTitle">
-      <span class="external-service-overlay__eyebrow">Servicio externo</span>
-      <h2 id="externalServiceTitle">TrackingBO</h2>
-      <p id="externalServiceMessage">
-        TrackingBO no permite abrirse dentro del kiosco. Puedes abrirlo en esta misma pestaña para continuar.
-      </p>
+      <div class="external-service-overlay__header">
+        <div>
+          <span class="external-service-overlay__eyebrow">Servicio embebido</span>
+          <h2 id="externalServiceTitle">TrackingBO</h2>
+          <p id="externalServiceMessage">
+            Rastreo de correspondencia abierto dentro del kiosco.
+          </p>
+        </div>
+        <button type="button" class="external-service-overlay__icon-button" id="externalServiceClose" title="Cerrar">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="external-service-overlay__frame-shell">
+        <iframe
+          id="externalServiceFrame"
+          title="TrackingBO"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
       <div class="external-service-overlay__actions">
-        <button type="button" class="external-service-overlay__button" id="externalServiceConfirm">Abrir aqui</button>
+        <button type="button" class="external-service-overlay__button" id="externalServiceConfirm">Recargar</button>
         <button type="button" class="external-service-overlay__button external-service-overlay__button--secondary" id="externalServiceCancel">
-          Cancelar
+          Cerrar
         </button>
       </div>
     </section>
