@@ -1,8 +1,7 @@
 const HOME_PAGE = 'index2.html';
 const REBUILD_DURATION = 1100;
 const SERVICE_TRANSITION_DURATION = 850;
-const OVERLAY_HIDE_DELAY = 4000;
-const SERVICE_LOAD_ERROR_TIMEOUT = 12000;
+const SERVICE_LOAD_TIMEOUT = 10000;
 const IDLE_TIMEOUT = 12000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 6;
@@ -11,6 +10,60 @@ const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
 
 function isHomeView(url) {
   return typeof url === 'string' && url.includes(HOME_PAGE);
+}
+
+function shouldOpenInPopup(url) {
+  return typeof url === 'string' && url.toLowerCase().includes('trackingbo');
+}
+
+function logServiceEvent(level, message, details = {}) {
+  const timestamp = new Date().toISOString();
+  const payload = { timestamp, ...details };
+  const logger = console[level] || console.log;
+  logger(`[KIOSCO_AGBC] ${message}`, payload);
+}
+
+function getServiceDiagnostics(url, title) {
+  const normalizedUrl = (url || '').toLowerCase();
+  const serviceTitle = title || 'Servicio AGBC';
+
+  if (normalizedUrl.includes('trackingbo.correos.gob.bo:8100')) {
+    return {
+      title: `${serviceTitle}: problema de conexion segura`,
+      message: 'El servidor responde por el puerto 8100, pero la sesion HTTPS/TLS no logra completarse correctamente.',
+      details: 'En las pruebas de red el puerto 8100 estuvo abierto, pero la negociacion segura fallo. Eso suele indicar una configuracion SSL/TLS antigua, un certificado incompatible o bloqueo para contenido embebido.',
+    };
+  }
+
+  if (normalizedUrl.includes('postar.correos.gob.bo:8104')) {
+    return {
+      title: `${serviceTitle}: servidor sin respuesta`,
+      message: 'El host fue localizado, pero el puerto 8104 no acepto conexion.',
+      details: 'Esto apunta a servicio caido, puerto cerrado o acceso limitado solo a una red interna/VPN. Mientras el servidor no responda, el kiosco no podra mostrar esa pagina.',
+    };
+  }
+
+  if (normalizedUrl.includes('sireco.correos.gob.bo:8102')) {
+    return {
+      title: `${serviceTitle}: servidor sin respuesta`,
+      message: 'El host fue localizado, pero el puerto 8102 no acepto conexion.',
+      details: 'Esto apunta a servicio caido, puerto cerrado o acceso limitado solo a una red interna/VPN. Mientras el servidor no responda, el kiosco no podra mostrar esa pagina.',
+    };
+  }
+
+  if (normalizedUrl.includes('ips.correos.gob.bo')) {
+    return {
+      title: `${serviceTitle}: carga embebida rechazada`,
+      message: 'El servidor principal responde, pero la pagina puede estar rechazando mostrarse dentro de un iframe.',
+      details: 'Si la aplicacion externa usa politicas como X-Frame-Options o Content-Security-Policy frame-ancestors, el navegador la bloqueara aunque el enlace exista.',
+    };
+  }
+
+  return {
+    title: `${serviceTitle}: no se pudo cargar`,
+    message: 'El enlace externo no pudo mostrarse dentro del kiosco.',
+    details: 'Revisa disponibilidad del servidor, certificado HTTPS y politicas de carga embebida del sitio destino.',
+  };
 }
 
 function setupChildView() {
@@ -22,17 +75,34 @@ function setupChildView() {
 
   if (trackingLaunch) {
     trackingLaunch.addEventListener('click', () => {
-      window.top.location.href = TRACKING_URL;
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'open-service',
+          url: TRACKING_URL,
+          title: 'Rastreo de correspondencia',
+        }, '*');
+        return;
+      }
+
+      window.location.href = TRACKING_URL;
     });
   }
 
   externalLaunchButtons.forEach((button) => {
     button.addEventListener('click', () => {
       const targetUrl = button.dataset.externalLaunch;
+      const targetTitle = button.dataset.title || 'Servicio AGBC';
 
-      if (targetUrl) {
-        window.top.location.href = targetUrl;
+      if (!targetUrl) {
+        return;
       }
+
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'open-service', url: targetUrl, title: targetTitle }, '*');
+        return;
+      }
+
+      window.location.href = targetUrl;
     });
   });
 
@@ -190,18 +260,13 @@ function setupChildView() {
       card.classList.remove('flipped');
     });
 
-    const openService = () => {
+    card.addEventListener('click', () => {
       if (window.parent !== window) {
         window.parent.postMessage({ type: 'open-service', url, title }, '*');
         return;
       }
 
       window.location.href = url;
-    };
-
-    card.addEventListener('click', (event) => {
-
-      openService();
     });
   });
 
@@ -224,49 +289,68 @@ function setupParentShell() {
   const frameStage = document.getElementById('frameStage');
   const homeButton = document.getElementById('homeButton');
   const backButton = document.getElementById('backButton');
-  const overlayTitle = document.getElementById('overlayTitle');
-  const frameOverlay = document.getElementById('frameOverlay');
+  const mainTitle = document.getElementById('dynamicHeaderTitle');
   const serviceErrorState = document.getElementById('serviceErrorState');
 
-  if (!frame || !frameStage || !homeButton || !backButton || !overlayTitle || !frameOverlay || !serviceErrorState) {
+  if (!frame || !frameStage || !homeButton || !backButton || !mainTitle || !serviceErrorState) {
     return;
   }
 
   let currentServiceUrl = HOME_PAGE;
   let currentServiceTitle = 'Panel principal';
   let navigatingHome = false;
-  let overlayTimer = null;
+  let pendingServiceUrl = null;
   let serviceLoadTimer = null;
-  let serviceProbeController = null;
-  let activeServiceUrl = HOME_PAGE;
-  let serviceFrameLoaded = false;
-  let serviceProbeSucceeded = false;
+  let serviceLoadStartedAt = null;
+  const serviceErrorTitle = document.getElementById('serviceErrorTitle');
+  const serviceErrorMessage = document.getElementById('serviceErrorMessage');
+  const serviceErrorDetails = document.getElementById('serviceErrorDetails');
+  const serviceRetryButton = document.getElementById('serviceRetryButton');
+  const serviceHomeButton = document.getElementById('serviceHomeButton');
+  const externalServiceOverlay = document.getElementById('externalServiceOverlay');
+  const externalServiceTitle = document.getElementById('externalServiceTitle');
+  const externalServiceMessage = document.getElementById('externalServiceMessage');
+  const externalServiceConfirm = document.getElementById('externalServiceConfirm');
+  const externalServiceCancel = document.getElementById('externalServiceCancel');
+  let pendingExternalUrl = null;
+  let pendingExternalTitle = null;
 
-  const clearOverlayTimer = () => {
-    if (overlayTimer) {
-      window.clearTimeout(overlayTimer);
-      overlayTimer = null;
-    }
-  };
+  if (!serviceErrorTitle || !serviceErrorMessage || !serviceErrorDetails || !serviceRetryButton || !serviceHomeButton) {
+    return;
+  }
+  if (!externalServiceOverlay || !externalServiceTitle || !externalServiceMessage || !externalServiceConfirm || !externalServiceCancel) {
+    return;
+  }
 
-  const hideOverlaySoon = () => {
-    clearOverlayTimer();
-    frameOverlay.classList.remove('is-hidden');
-    overlayTimer = window.setTimeout(() => {
-      frameOverlay.classList.add('is-hidden');
-    }, OVERLAY_HIDE_DELAY);
-  };
-
-  const clearServiceLoadMonitor = () => {
+  const clearServiceLoadTimer = () => {
     if (serviceLoadTimer) {
       window.clearTimeout(serviceLoadTimer);
       serviceLoadTimer = null;
     }
+  };
 
-    if (serviceProbeController) {
-      serviceProbeController.abort();
-      serviceProbeController = null;
-    }
+  const updateHeader = (title, isService) => {
+    mainTitle.textContent = isService ? title.toUpperCase() : '';
+    frameStage.classList.toggle('is-service', isService);
+  };
+
+  const hideExternalOverlay = () => {
+    externalServiceOverlay.hidden = true;
+    pendingExternalUrl = null;
+    pendingExternalTitle = null;
+  };
+
+  const showExternalOverlay = (url, title) => {
+    pendingExternalUrl = url;
+    pendingExternalTitle = title || 'Servicio AGBC';
+    externalServiceTitle.textContent = pendingExternalTitle;
+    externalServiceMessage.textContent = `${pendingExternalTitle} no permite abrirse dentro del kiosco. Puedes abrirlo en esta misma pestaña para continuar.`;
+    externalServiceOverlay.hidden = false;
+    logServiceEvent('warn', 'Servicio requiere apertura en la misma pestana fuera del iframe', {
+      url,
+      title: pendingExternalTitle,
+      reason: 'Bloqueo de iframe por politica del servidor externo.',
+    });
   };
 
   const hideServiceError = () => {
@@ -275,107 +359,40 @@ function setupParentShell() {
   };
 
   const showServiceError = () => {
-    clearServiceLoadMonitor();
-    frameStage.classList.remove('is-transitioning');
-    frameOverlay.classList.add('is-hidden');
+    clearServiceLoadTimer();
+    const diagnostics = getServiceDiagnostics(currentServiceUrl, currentServiceTitle);
+    const elapsedMs = serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : null;
+    serviceErrorTitle.textContent = diagnostics.title;
+    serviceErrorMessage.textContent = diagnostics.message;
+    serviceErrorDetails.textContent = diagnostics.details;
     serviceErrorState.hidden = false;
     frameStage.classList.add('has-service-error');
-  };
-
-  const watchServiceLoad = (url) => {
-    clearServiceLoadMonitor();
-    serviceFrameLoaded = false;
-    serviceProbeSucceeded = false;
-
-    serviceLoadTimer = window.setTimeout(showServiceError, SERVICE_LOAD_ERROR_TIMEOUT);
-
-    if (!url || isHomeView(url) || !window.AbortController || !window.fetch) {
-      return;
-    }
-
-    serviceProbeController = new AbortController();
-    const { signal } = serviceProbeController;
-
-    fetch(url, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-store',
-      signal,
-    })
-      .then(() => {
-        if (!signal.aborted) {
-          serviceProbeSucceeded = true;
-          serviceProbeController = null;
-          revealServiceWhenReady();
-        }
-      })
-      .catch((error) => {
-        if (error.name !== 'AbortError') {
-          showServiceError();
-        }
-      });
-  };
-
-  const frameWasRejected = () => {
-    if (!activeServiceUrl || isHomeView(activeServiceUrl)) {
-      return false;
-    }
-
-    try {
-      const frameLocation = frame.contentWindow?.location;
-      const visibleUrl = frameLocation?.href || '';
-
-      return !visibleUrl || visibleUrl === 'about:blank' || isHomeView(visibleUrl);
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const revealServiceWhenReady = () => {
-    if (!serviceFrameLoaded || !serviceProbeSucceeded) {
-      return;
-    }
-
-    if (frameWasRejected()) {
-      showServiceError();
-      return;
-    }
-
-    clearServiceLoadMonitor();
     frameStage.classList.remove('is-transitioning');
-    updateHeader(currentServiceTitle, true);
-    hideOverlaySoon();
-  };
-
-  const updateHeader = (title, isService) => {
-    const mainTitle = document.getElementById('dynamicHeaderTitle');
-
-    if (mainTitle) {
-      // Si isService es true, pone el título de la carta. Si no, vuelve a PANEL PRINCIPAL.
-      mainTitle.textContent = isService ? title.toUpperCase() : "";
-    }
-
-
-    // Opcional: Ocultar el overlay azul de carga después de que cambie el título
-    if (frameOverlay) {
-      frameOverlay.classList.add('is-hidden');
-    }
+    logServiceEvent('error', 'Error al cargar servicio en iframe', {
+      url: currentServiceUrl,
+      title: currentServiceTitle,
+      elapsedMs,
+      diagnostics,
+      hint: 'Revisa la pestana Network y la consola del navegador para errores de TLS, conexion o bloqueo de iframe.',
+    });
   };
 
   const finalizeHomeView = () => {
     currentServiceUrl = HOME_PAGE;
     currentServiceTitle = 'Panel principal';
-    activeServiceUrl = HOME_PAGE;
-    clearOverlayTimer();
-    frameOverlay.classList.add('is-hidden');
-    updateHeader(currentServiceTitle, false);
+    pendingServiceUrl = null;
+    clearServiceLoadTimer();
     frameStage.classList.remove('is-transitioning');
     frameStage.classList.remove('is-rebuilding');
     navigatingHome = false;
-    serviceFrameLoaded = false;
-    serviceProbeSucceeded = false;
-    clearServiceLoadMonitor();
+    serviceLoadStartedAt = null;
     hideServiceError();
+    updateHeader(currentServiceTitle, false);
+    hideExternalOverlay();
+    logServiceEvent('info', 'Vista principal restaurada', {
+      url: HOME_PAGE,
+      title: currentServiceTitle,
+    });
 
     try {
       frame.contentWindow?.postMessage({ type: 'play-home-intro' }, '*');
@@ -384,78 +401,140 @@ function setupParentShell() {
     }
   };
 
-  const goHome = () => {
-    navigatingHome = true;
-    frameStage.classList.remove('is-service');
-    frameStage.classList.add('is-rebuilding');
-    updateHeader('Reconstruyendo panel principal', false);
-    serviceFrameLoaded = false;
-    serviceProbeSucceeded = false;
-    clearServiceLoadMonitor();
-    hideServiceError();
-
-    window.setTimeout(() => {
-      frame.src = HOME_PAGE;
-    }, 260);
-  };
-
   const openService = (url, title) => {
     if (!url) {
-      currentServiceTitle = title || 'Servicio AGBC';
-      updateHeader(currentServiceTitle, true);
-      showServiceError();
+      logServiceEvent('warn', 'Intento de apertura sin URL', { title });
       return;
     }
 
-    // 🔥 FIX: detectar tracking y abrir fuera del iframe
-if (url.includes('correos.gob.bo')) {
-  window.open(url, '_blank');
-  return;
-}
+    if (shouldOpenInPopup(url)) {
+      showExternalOverlay(url, title || 'TrackingBO');
+      return;
+    }
+
     currentServiceUrl = url;
     currentServiceTitle = title || 'Servicio AGBC';
-    activeServiceUrl = url;
-    serviceFrameLoaded = false;
-    serviceProbeSucceeded = false;
+    pendingServiceUrl = url;
+    serviceLoadStartedAt = Date.now();
+    hideServiceError();
     updateHeader(currentServiceTitle, true);
     frameStage.classList.remove('is-rebuilding');
     frameStage.classList.add('is-transitioning');
-    frameOverlay.classList.remove('is-hidden');
-    hideServiceError();
-    watchServiceLoad(url);
+    logServiceEvent('info', 'Iniciando carga de servicio', {
+      url,
+      title: currentServiceTitle,
+      timeoutMs: SERVICE_LOAD_TIMEOUT,
+      expectedBehavior: 'El iframe deberia emitir load antes del timeout.',
+    });
+    clearServiceLoadTimer();
+    serviceLoadTimer = window.setTimeout(showServiceError, SERVICE_LOAD_TIMEOUT);
 
     window.setTimeout(() => {
       frame.src = url;
+      logServiceEvent('info', 'src del iframe actualizado', {
+        url,
+        title: currentServiceTitle,
+      });
+    }, 140);
+  };
+
+  const goHome = () => {
+    navigatingHome = true;
+    currentServiceUrl = HOME_PAGE;
+    pendingServiceUrl = null;
+    clearServiceLoadTimer();
+    serviceLoadStartedAt = null;
+    hideServiceError();
+    hideExternalOverlay();
+    frameStage.classList.remove('is-service');
+    frameStage.classList.add('is-rebuilding');
+    updateHeader('Panel principal', false);
+    logServiceEvent('info', 'Volviendo al inicio', {
+      previousUrl: currentServiceUrl,
+      nextUrl: HOME_PAGE,
+    });
+
+    window.setTimeout(() => {
+      frame.src = HOME_PAGE;
     }, 220);
   };
 
   homeButton.addEventListener('click', goHome);
 
   backButton.addEventListener('click', () => {
-    if (isHomeView(currentServiceUrl) || isHomeView(frame.src)) {
+    if (!isHomeView(currentServiceUrl)) {
       goHome();
-      return;
     }
-
-    goHome();
   });
 
   frame.addEventListener('load', () => {
     const frameUrl = frame.getAttribute('src') || '';
-    const showingHome = isHomeView(frameUrl);
+    const elapsedMs = serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : null;
 
-    if (showingHome) {
+    logServiceEvent('info', 'Evento load del iframe', {
+      frameUrl,
+      currentServiceUrl,
+      currentServiceTitle,
+      elapsedMs,
+      isHome: isHomeView(frameUrl),
+    });
+
+    if (isHomeView(frameUrl)) {
       window.setTimeout(finalizeHomeView, navigatingHome ? REBUILD_DURATION : 180);
       return;
     }
 
-    window.setTimeout(() => {
-      serviceFrameLoaded = true;
-      revealServiceWhenReady();
-    }, SERVICE_TRANSITION_DURATION);
+    if (pendingServiceUrl && frameUrl === pendingServiceUrl) {
+      window.setTimeout(() => {
+        clearServiceLoadTimer();
+        hideServiceError();
+        frameStage.classList.remove('is-transitioning');
+        updateHeader(currentServiceTitle, true);
+        logServiceEvent('info', 'Servicio cargado en iframe', {
+          url: currentServiceUrl,
+          title: currentServiceTitle,
+          elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
+        });
+      }, SERVICE_TRANSITION_DURATION);
+    }
   });
 
-  frame.addEventListener('error', showServiceError);
+  frame.addEventListener('error', () => {
+    logServiceEvent('error', 'Evento error del iframe', {
+      url: currentServiceUrl,
+      title: currentServiceTitle,
+      hint: 'Este evento no siempre se dispara en bloqueos cross-origin, pero si aparece indica fallo de carga directo.',
+    });
+    showServiceError();
+  });
+  serviceRetryButton.addEventListener('click', () => {
+    logServiceEvent('warn', 'Reintento manual solicitado', {
+      url: currentServiceUrl,
+      title: currentServiceTitle,
+    });
+    if (currentServiceUrl && !isHomeView(currentServiceUrl)) {
+      openService(currentServiceUrl, currentServiceTitle);
+    }
+  });
+  serviceHomeButton.addEventListener('click', goHome);
+  externalServiceCancel.addEventListener('click', () => {
+    logServiceEvent('info', 'Apertura externa cancelada por el usuario', {
+      url: pendingExternalUrl,
+      title: pendingExternalTitle,
+    });
+    hideExternalOverlay();
+  });
+  externalServiceConfirm.addEventListener('click', () => {
+    if (!pendingExternalUrl) {
+      return;
+    }
+
+    logServiceEvent('info', 'Abriendo servicio externo en la misma pestana', {
+      url: pendingExternalUrl,
+      title: pendingExternalTitle,
+    });
+    window.location.href = pendingExternalUrl;
+  });
 
   window.addEventListener('message', (event) => {
     const { data } = event;
@@ -465,33 +544,26 @@ if (url.includes('correos.gob.bo')) {
     }
 
     if (data.type === 'open-service') {
-      // Si es rastreo, abre en ventana nueva porque rechaza CORS en iframe
+      logServiceEvent('info', 'Solicitud recibida desde la vista hija', {
+        url: data.url,
+        title: data.title,
+      });
       openService(data.url, data.title);
     }
 
     if (data.type === 'home-ready' && navigatingHome) {
+      logServiceEvent('info', 'La vista hija informo que el inicio esta listo', {
+        url: HOME_PAGE,
+      });
       finalizeHomeView();
     }
   });
 
-  frameOverlay.classList.add('is-hidden');
   updateHeader(currentServiceTitle, false);
+  hideServiceError();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   setupChildView();
   setupParentShell();
 });
-
-const updateHeader = (title, isService) => {
-  // Si hay un título lo pone, si no, usa el genérico
-  overlayTitle.textContent = title || 'Servicio AGBC';
-
-  frameStage.classList.toggle('is-service', isService);
-  frameOverlay.classList.toggle('is-hidden', !isService);
-
-  // Aseguramos que el overlay tenga una clase para aplicar el centrado
-  frameOverlay.style.display = 'flex';
-  frameOverlay.style.justifyContent = 'center';
-  frameOverlay.style.alignItems = 'center';
-};
