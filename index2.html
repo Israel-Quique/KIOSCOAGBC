@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackingBO - AGBC</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
+  <script src="index.js" defer></script>
+</head>
+
+<body class="tracking-page">
+  <main class="tracking-main intro-animate" data-page="home">
+    <div class="idle-attractor" aria-hidden="true">
+      <div class="idle-attractor__halo"></div>
+      <div class="idle-attractor__content">
+        <div class="idle-logo-mosaic" id="idleLogoMosaic" aria-hidden="true"></div>
+      </div>
+    </div>
+    <section class="services-grid" aria-label="Servicios disponibles">
+      <article class="service-card" data-url="https://trackingbo.correos.gob.bo:8100/"
+        data-title="Rastreo de correspondencia">
+        <div class="card-inner">
+          <div class="card-face card-front">
+            <div class="card-top">
+              <span class="card-tag">Seguimiento</span>
+              <h3 class="card-title">Rastreo de correspondencia</h3>
+            </div>
+            <div class="service-media">
+              <img src="RASTREO.png" class="service-image" alt="Rastreo Correos de Bolivia">
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="back-content">
+              <img class="qr-image"
+                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Ftrackingbo.correos.gob.bo%3A8100%2F"
+                alt="QR del rastreo de correspondencia">
+              <div class="back-text">
+                <p>Escanea el QR para abrir el servicio.</p>
+                <span>Rastreo de correspondencia</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="service-card" data-url="https://postar.correos.gob.bo:8104/" data-title="Calculadora postal">
+        <div class="card-inner">
+          <div class="card-face card-front">
+            <div class="card-top">
+              <span class="card-tag">Cotizacion</span>
+              <h3 class="card-title">Calculadora postal</h3>
+            </div>
+            <div class="service-media">
+              <img src="CALCULO.png" class="service-image" alt="Calculadora postal">
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="back-content">
+              <img class="qr-image"
+                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fpostar.correos.gob.bo%3A8104%2F"
+                alt="QR de la calculadora postal">
+              <div class="back-text">
+                <p>Escanea el QR y consulta tus tarifas.</p>
+                <span>Calculadora postal</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="service-card" data-url="https://sireco.correos.gob.bo:8102/" data-title="Sistema de reclamos AGBC">
+        <div class="card-inner">
+          <div class="card-face card-front">
+            <div class="card-top">
+              <span class="card-tag">Atencion</span>
+              <h3 class="card-title">Sistema de reclamos AGBC</h3>
+            </div>
+            <div class="service-media">
+              <img src="RECLAMO2.png" class="service-image" alt="Sistema de reclamos">
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="back-content">
+              <img class="qr-image"
+                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fsireco.correos.gob.bo%3A8102%2F"
+                alt="QR del sistema de reclamos">
+              <div class="back-text">
+                <p>Escanea el QR para abrir reclamos.</p>
+                <span>Sistema de reclamos AGBC</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="service-card" data-url="https://ips.correos.gob.bo/CDS.Web/Operational/andeclaration.aspx"
+        data-title="Kiosco aduana">
+        <div class="card-inner">
+          <div class="card-face card-front">
+            <div class="card-top">
+              <span class="card-tag">Aduana</span>
+              <h3 class="card-title">Kiosco aduana</h3>
+            </div>
+            <div class="service-media">
+              <img src="DECLARACION2.png" class="service-image" alt="Kiosco declaracion aduana">
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="back-content">
+              <img class="qr-image"
+                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fips.correos.gob.bo%2FCDS.Web%2FOperational%2Fandeclaration.aspx"
+                alt="QR del kiosco aduana">
+              <div class="back-text">
+                <p>Escanea el QR para abrir la declaracion aduanera.</p>
+                <span>Kiosco aduana</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+
+</html>
