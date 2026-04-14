@@ -322,6 +322,7 @@ function setupChildView() {
 
       clearFlipCycle();
       card.classList.remove('flipped');
+      card.classList.remove('is-selected');
     });
 
     card.addEventListener('click', () => {
@@ -332,10 +333,12 @@ function setupChildView() {
       exitIdleMode();
       clearFlipCycle();
       clearLaunchTimer();
-      card.classList.add('is-shaking', 'is-launching');
+      cards.forEach((item) => item.classList.remove('is-selected'));
+      card.classList.add('is-selected', 'is-shaking', 'is-launching');
       launchTimer = window.setTimeout(() => {
         card.classList.remove('is-shaking');
         card.classList.remove('is-launching');
+        card.classList.remove('is-selected');
         launchService();
       }, CARD_SHAKE_DURATION);
     });

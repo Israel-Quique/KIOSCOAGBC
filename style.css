@@ -182,6 +182,7 @@ body {
   transition: transform 0.28s var(--ease-out), box-shadow 0.28s var(--ease-out), filter 0.28s ease;
   min-width: 52px;
   min-height: 52px;
+  animation: headerButtonFloat 2.8s ease-in-out infinite;
 }
 
 .header-button .material-symbols-outlined {
@@ -193,6 +194,11 @@ body {
   transform: translateY(-3px) scale(1.02);
   box-shadow: 0 16px 34px rgba(10, 30, 54, 0.3);
   filter: brightness(1.02);
+  animation-play-state: paused;
+}
+
+.header-button:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .header-button:focus-visible,
@@ -255,10 +261,31 @@ body {
   overflow: hidden;
   background:
     radial-gradient(circle at top, var(--sky-glow), transparent 34%),
+    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.24), transparent 46%),
+    radial-gradient(circle at 80% 16%, rgba(255, 247, 204, 0.2), transparent 52%),
     linear-gradient(180deg, var(--sky-accent) 0%, var(--sky-deep) 100%);
   color: var(--brand-white);
   text-align: center;
   transition: background 1.2s ease;
+}
+
+.service-error-state::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.14), transparent 58%),
+    radial-gradient(circle at 35% 65%, rgba(255, 215, 120, 0.12), transparent 56%);
+  animation: skyDrift 6s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+.service-error-state::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(14, 26, 46, 0) 0%, rgba(10, 20, 38, 0.42) 72%);
+  pointer-events: none;
 }
 
 .service-error-state[hidden] {
@@ -414,6 +441,7 @@ body {
   color: var(--brand-white);
   transform: scale(1.45);
   transform-origin: center bottom;
+  filter: drop-shadow(0 20px 32px rgba(6, 16, 36, 0.28));
 }
 
 .mountain {
@@ -431,6 +459,7 @@ body {
     320px 400px 0 50px #f6c22f;
   transform: rotate(130deg);
   animation: mtn 20s linear infinite;
+  filter: drop-shadow(0 18px 24px rgba(6, 16, 36, 0.3));
 }
 
 .hill {
@@ -448,6 +477,7 @@ body {
     290px 0 0 50px #f0a513,
     620px 0 0 50px #f0a513;
   animation: hill 4s 2s linear infinite;
+  filter: drop-shadow(0 16px 18px rgba(6, 16, 36, 0.22));
 }
 
 .tree,
@@ -486,6 +516,7 @@ body {
   background: url("https://s3-us-west-2.amazonaws.com/s.cdpn.io/130015/truck.svg") no-repeat;
   background-size: contain;
   filter: brightness(0) saturate(100%) invert(77%) sepia(92%) saturate(612%) hue-rotate(346deg) brightness(102%) contrast(93%);
+  filter: drop-shadow(0 12px 18px rgba(6, 16, 36, 0.32));
 }
 
 .truck:before {
@@ -502,6 +533,7 @@ body {
   margin-bottom: 0;
   background: url("https://s3-us-west-2.amazonaws.com/s.cdpn.io/130015/wheels.svg") no-repeat;
   filter: brightness(0) saturate(100%) invert(16%) sepia(65%) saturate(1311%) hue-rotate(182deg) brightness(89%) contrast(95%);
+  filter: drop-shadow(0 8px 12px rgba(6, 16, 36, 0.32));
 }
 
 .tree {
@@ -662,7 +694,7 @@ body {
 .idle-logo-mosaic {
   --logo-size: min(2080px, 116vw);
   position: relative;
-  place-self: start center;
+  place-self: center;
   width: var(--logo-size);
   max-width: 100%;
   height: min(100vh, calc(var(--logo-size) / 3.35));
@@ -671,12 +703,12 @@ body {
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: repeat(6, 1fr);
   gap: 0;
-  margin: -5vh 0 0;
+  margin: 0;
   padding: 0;
   border-radius: 0;
   background: transparent;
   overflow: hidden;
-  margin-top: 6%;
+  margin-top: 0;
 }
 
 .idle-logo-mosaic::before {
@@ -692,7 +724,7 @@ body {
 .idle-logo-mosaic__tile {
   position: relative;
   border-radius: 0;
-  background-image: url("Correos3.png");
+  background-image: url("Finalfondo.png");
   background-repeat: no-repeat;
   background-size: calc(var(--tile-count) * 100%) calc(var(--tile-count) * 100%);
   background-position:
@@ -782,6 +814,8 @@ body {
   animation: cardDropPairA 0.95s cubic-bezier(0.16, 1, 0.3, 1) both;
   cursor: pointer;
   will-change: transform, opacity;
+  border-radius: 26px;
+  transform-origin: center;
 }
 
 .service-card:nth-child(1),
@@ -842,7 +876,8 @@ body {
   overflow: hidden;
   border-radius: 24px;
   padding: 18px 16px 16px;
-  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 38px rgba(10, 30, 54, 0.16);
 }
 
 .card-top,
@@ -882,15 +917,16 @@ body {
   background:
     radial-gradient(circle at top right, rgba(246, 194, 47, 0.18), transparent 30%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 249, 232, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.96);
   transform: translateY(0);
   transition: transform 0.5s var(--ease-out), box-shadow 0.5s var(--ease-out), filter 0.5s ease;
 }
 
-.service-card:hover .card-front {
-  transform: translateY(-10px) scale(1.01);
-  box-shadow: var(--shadow-strong);
-  filter: saturate(1.02);
+.service-card:hover .card-front,
+.service-card.is-selected .card-front {
+  transform: translateY(-12px) scale(1.015);
+  box-shadow: 0 30px 62px rgba(10, 30, 54, 0.26), 0 0 0 1px rgba(255, 216, 118, 0.6);
+  filter: saturate(1.08) brightness(1.02);
 }
 
 .card-back {
@@ -961,7 +997,8 @@ body {
   transition: transform 0.45s var(--ease-out);
 }
 
-.service-card:hover .service-image {
+.service-card:hover .service-image,
+.service-card.is-selected .service-image {
   transform: scale(1.04);
 }
 
@@ -1615,6 +1652,32 @@ body {
   }
 }
 
+@keyframes skyDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: translate3d(0, -2%, 0) scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes headerButtonFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 12px 30px rgba(10, 30, 54, 0.24);
+  }
+
+  50% {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(10, 30, 54, 0.28);
+  }
+}
+
 @keyframes cardShakeSide {
   0%,
   100% {
@@ -1860,7 +1923,7 @@ body {
     height: min(100vh, calc(var(--logo-size) / 3.35));
     gap: 0;
     padding: 0;
-    margin: -3vh 0 0;
+    margin: 0;
   }
 
   .service-panel {
@@ -1947,7 +2010,7 @@ body {
     height: min(100vh, calc(var(--logo-size) / 3.35));
     gap: 0;
     padding: 0;
-    margin: -1vh 0 0;
+    margin: 0;
   }
 
   .idle-logo-mosaic__tile {
