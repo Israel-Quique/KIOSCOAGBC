@@ -292,6 +292,43 @@ body {
   display: none;
 }
 
+.service-status-copy {
+  position: relative;
+  z-index: 2;
+  width: min(760px, calc(100vw - 80px));
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.service-status-spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #fff6d3;
+  filter: drop-shadow(0 0 16px rgba(255, 246, 211, 0.38));
+  animation: serviceSpinner 0.9s linear infinite;
+}
+
+.service-status-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #fffaf0;
+  text-shadow: 0 10px 24px rgba(6, 16, 36, 0.42);
+}
+
+.service-status-message {
+  margin: 0;
+  max-width: 64ch;
+  font-size: clamp(0.96rem, 1.5vw, 1.1rem);
+  line-height: 1.5;
+  color: rgba(255, 252, 240, 0.95);
+  text-shadow: 0 8px 18px rgba(6, 16, 36, 0.32);
+}
+
 .external-service-overlay {
   position: fixed;
   inset: 0;
@@ -564,6 +601,12 @@ body {
   animation: wind 1.5s 0s ease infinite;
 }
 
+@keyframes serviceSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .frame-overlay {
   position: absolute;
   left: 24px;
@@ -693,6 +736,7 @@ body {
 
 .idle-logo-mosaic {
   --logo-size: min(2080px, 116vw);
+  --idle-logo-shift-x: -5.5%;
   position: relative;
   place-self: center;
   width: var(--logo-size);
@@ -709,6 +753,7 @@ body {
   background: transparent;
   overflow: hidden;
   margin-top: 0;
+  transform: translateX(var(--idle-logo-shift-x));
 }
 
 .idle-logo-mosaic::before {
@@ -1920,6 +1965,7 @@ body {
 
   .idle-logo-mosaic {
     --logo-size: min(122vw, 1500px);
+    --idle-logo-shift-x: -3.8%;
     height: min(100vh, calc(var(--logo-size) / 3.35));
     gap: 0;
     padding: 0;
@@ -2007,6 +2053,7 @@ body {
 
   .idle-logo-mosaic {
     --logo-size: min(132vw, 920px);
+    --idle-logo-shift-x: -2.8%;
     height: min(100vh, calc(var(--logo-size) / 3.35));
     gap: 0;
     padding: 0;

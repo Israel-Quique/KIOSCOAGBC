@@ -54,40 +54,40 @@ function getServiceDiagnostics(url, title) {
 
   if (normalizedUrl.includes('trackingbo.correos.gob.bo:8100')) {
     return {
-      title: `${serviceTitle}: problema de conexion segura`,
-      message: 'El servidor responde por el puerto 8100, pero la sesion HTTPS/TLS no logra completarse correctamente.',
-      details: 'En las pruebas de red el puerto 8100 estuvo abierto, pero la negociacion segura fallo. Eso suele indicar una configuracion SSL/TLS antigua, un certificado incompatible o bloqueo para contenido embebido.',
+      title: `${serviceTitle}: no disponible por ahora`,
+      message: 'No pudimos abrir el servicio en este momento.',
+      details: 'Puede tratarse de una caida temporal o de una limitacion de acceso.',
     };
   }
 
   if (normalizedUrl.includes('postar.correos.gob.bo:8104')) {
     return {
-      title: `${serviceTitle}: servidor sin respuesta`,
-      message: 'El host fue localizado, pero el puerto 8104 no acepto conexion.',
-      details: 'Esto apunta a servicio caido, puerto cerrado o acceso limitado solo a una red interna/VPN. Mientras el servidor no responda, el kiosco no podra mostrar esa pagina.',
+      title: `${serviceTitle}: no disponible por ahora`,
+      message: 'No recibimos respuesta del servicio.',
+      details: 'Puede tratarse de una caida temporal o de una limitacion de acceso.',
     };
   }
 
   if (normalizedUrl.includes('sireco.correos.gob.bo:8102')) {
     return {
-      title: `${serviceTitle}: servidor sin respuesta`,
-      message: 'El host fue localizado, pero el puerto 8102 no acepto conexion.',
-      details: 'Esto apunta a servicio caido, puerto cerrado o acceso limitado solo a una red interna/VPN. Mientras el servidor no responda, el kiosco no podra mostrar esa pagina.',
+      title: `${serviceTitle}: no disponible por ahora`,
+      message: 'No recibimos respuesta del servicio.',
+      details: 'Puede tratarse de una caida temporal o de una limitacion de acceso.',
     };
   }
 
   if (normalizedUrl.includes('ips.correos.gob.bo')) {
     return {
-      title: `${serviceTitle}: carga embebida rechazada`,
-      message: 'El servidor principal responde, pero la pagina puede estar rechazando mostrarse dentro de un iframe.',
-      details: 'Si la aplicacion externa usa politicas como X-Frame-Options o Content-Security-Policy frame-ancestors, el navegador la bloqueara aunque el enlace exista.',
+      title: `${serviceTitle}: no disponible por ahora`,
+      message: 'El servicio no se pudo mostrar dentro del kiosco.',
+      details: 'Intenta nuevamente en unos minutos.',
     };
   }
 
   return {
     title: `${serviceTitle}: no se pudo cargar`,
-    message: 'El enlace externo no pudo mostrarse dentro del kiosco.',
-    details: 'Revisa disponibilidad del servidor, certificado HTTPS y politicas de carga embebida del sitio destino.',
+    message: 'No pudimos abrir este servicio por el momento.',
+    details: 'Intenta nuevamente mas tarde.',
   };
 }
 
@@ -365,8 +365,19 @@ function setupParentShell() {
   const backButton = document.getElementById('backButton');
   const mainTitle = document.getElementById('dynamicHeaderTitle');
   const serviceErrorState = document.getElementById('serviceErrorState');
+  const serviceStatusTitle = document.getElementById('serviceStatusTitle');
+  const serviceStatusMessage = document.getElementById('serviceStatusMessage');
 
-  if (!frame || !frameStage || !homeButton || !backButton || !mainTitle || !serviceErrorState) {
+  if (
+    !frame ||
+    !frameStage ||
+    !homeButton ||
+    !backButton ||
+    !mainTitle ||
+    !serviceErrorState ||
+    !serviceStatusTitle ||
+    !serviceStatusMessage
+  ) {
     return;
   }
 
@@ -437,7 +448,16 @@ function setupParentShell() {
     frameStage.classList.remove('has-service-error');
   };
 
+  const setServiceStatus = (title, message) => {
+    serviceStatusTitle.textContent = title;
+    serviceStatusMessage.textContent = message;
+  };
+
   const showServiceLoading = () => {
+    setServiceStatus(
+      'Cargando servicio...',
+      'Estamos esperando respuesta. Si tarda demasiado, puede haber una caida temporal. Si deseas salir, usa "Volver" o "Inicio".'
+    );
     serviceErrorState.hidden = false;
     serviceErrorState.classList.add('is-loading');
     frameStage.classList.add('has-service-error');
@@ -447,6 +467,10 @@ function setupParentShell() {
     clearServiceLoadTimer();
     const diagnostics = getServiceDiagnostics(currentServiceUrl, currentServiceTitle);
     const elapsedMs = serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : null;
+    setServiceStatus(
+      diagnostics.title,
+      `${diagnostics.message} ${diagnostics.details} Para regresar, presiona "Volver" o "Inicio".`
+    );
     serviceErrorState.hidden = false;
     serviceErrorState.classList.remove('is-loading');
     frameStage.classList.add('has-service-error');
