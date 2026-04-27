@@ -9,6 +9,8 @@ const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 6;
 const IDLE_LOGO_ANIMATION_DURATION = 3600;
 const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
+const RECLAMOS_URL = 'https://sireco.correos.gob.bo:8102/';
+const RECLAMOS_ANCHOR = '#contactanos';
 
 function isHomeView(url) {
   return typeof url === 'string' && url.includes(HOME_PAGE);
@@ -16,6 +18,26 @@ function isHomeView(url) {
 
 function isTrackingService(url) {
   return typeof url === 'string' && url.toLowerCase().includes('trackingbo');
+}
+
+function normalizeServiceUrl(url) {
+  if (typeof url !== 'string') {
+    return url;
+  }
+
+  const trimmedUrl = url.trim();
+  const normalizedUrl = trimmedUrl.toLowerCase();
+  const isReclamos = normalizedUrl.startsWith(RECLAMOS_URL);
+
+  if (isReclamos && !trimmedUrl.includes('#')) {
+    return `${trimmedUrl}${RECLAMOS_ANCHOR}`;
+  }
+
+  return trimmedUrl;
+}
+
+function isReclamosService(url) {
+  return typeof url === 'string' && url.toLowerCase().includes('sireco.correos.gob.bo:8102');
 }
 
 function logServiceEvent(level, message, details = {}) {
@@ -561,26 +583,30 @@ function setupParentShell() {
   };
 
   const openService = (url, title) => {
-    if (!url) {
+    const normalizedUrl = normalizeServiceUrl(url);
+
+    if (!normalizedUrl) {
       logServiceEvent('warn', 'Intento de apertura sin URL', { title });
       return;
     }
 
-    if (isTrackingService(url)) {
+    if (isTrackingService(normalizedUrl)) {
       hideExternalOverlay();
     }
 
     hideExternalOverlay();
-    currentServiceUrl = url;
+    currentServiceUrl = normalizedUrl;
     currentServiceTitle = title || 'Servicio AGBC';
-    pendingServiceUrl = url;
+    pendingServiceUrl = normalizedUrl;
     serviceLoadStartedAt = Date.now();
+    frameStage.classList.toggle('is-reclamos-view', isReclamosService(normalizedUrl));
     updateHeader(currentServiceTitle, true);
     frameStage.classList.remove('is-rebuilding');
     frameStage.classList.add('is-transitioning');
     showServiceLoading();
     logServiceEvent('info', 'Iniciando carga de servicio', {
-      url,
+      requestedUrl: url,
+      url: normalizedUrl,
       title: currentServiceTitle,
       timeoutMs: SERVICE_LOAD_TIMEOUT,
       expectedBehavior: 'El iframe deberia emitir load antes del timeout.',
@@ -589,9 +615,10 @@ function setupParentShell() {
     serviceLoadTimer = window.setTimeout(showServiceError, SERVICE_LOAD_TIMEOUT);
 
     window.setTimeout(() => {
-      frame.src = url;
+      frame.src = normalizedUrl;
       logServiceEvent('info', 'src del iframe actualizado', {
-        url,
+        requestedUrl: url,
+        url: normalizedUrl,
         title: currentServiceTitle,
       });
     }, 140);
@@ -605,6 +632,7 @@ function setupParentShell() {
     serviceLoadStartedAt = null;
     hideServiceError();
     hideExternalOverlay();
+    frameStage.classList.remove('is-reclamos-view');
     frameStage.classList.remove('is-service');
     frameStage.classList.add('is-rebuilding');
     updateHeader('Panel principal', false);
@@ -732,6 +760,9 @@ function setupParentShell() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  if (window.location.protocol === 'file:') {
+    logServiceEvent('warn', 'La aplicacion se esta ejecutando en file://. Para iframes y postMessage confiables, usa http://localhost');
+  }
   applyTimeOfDayTheme();
   window.setInterval(applyTimeOfDayTheme, 60000);
   setupChildView();

@@ -240,8 +240,15 @@ body {
   min-height: 100%;
   border: none;
   background: transparent;
+  margin-top: 0;
   transition: transform 0.85s var(--ease-out), opacity 0.85s var(--ease-out), filter 0.85s ease;
   will-change: transform, opacity, filter;
+}
+
+.frame-stage.is-reclamos-view iframe {
+  margin-top: -1040px;
+  height: calc(100% + 1040px);
+  min-height: calc(100% + 1040px);
 }
 
 .frame-stage.has-service-error iframe {
