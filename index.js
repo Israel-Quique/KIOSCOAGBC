@@ -18,11 +18,6 @@ function isTrackingService(url) {
   return typeof url === 'string' && url.toLowerCase().includes('trackingbo');
 }
 
-function isHighRiskService(url) {
-  const normalizedUrl = (url || '').toLowerCase();
-  return normalizedUrl.includes('postar.correos.gob.bo:8104') || normalizedUrl.includes('sireco.correos.gob.bo:8102');
-}
-
 function logServiceEvent(level, message, details = {}) {
   const timestamp = new Date().toISOString();
   const payload = { timestamp, ...details };
@@ -529,6 +524,18 @@ function setupParentShell() {
     }
   };
 
+  const finalizeServiceReady = (elapsedMs) => {
+    clearServiceLoadTimer();
+    hideServiceError();
+    frameStage.classList.remove('is-transitioning');
+    updateHeader(currentServiceTitle, true);
+    logServiceEvent('info', 'Servicio cargado en iframe', {
+      url: currentServiceUrl,
+      title: currentServiceTitle,
+      elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
+    });
+  };
+
   const finalizeHomeView = () => {
     currentServiceUrl = HOME_PAGE;
     currentServiceTitle = 'Panel principal';
@@ -653,39 +660,8 @@ function setupParentShell() {
           return;
         }
 
-        if (isHighRiskService(currentServiceUrl)) {
-          try {
-            const bodyText = (frame.contentDocument?.body?.innerText || '').trim();
-            const bodyMediaCount = frame.contentDocument?.body?.querySelectorAll?.('img, svg, canvas, iframe, embed, object')?.length || 0;
-            const bodyInteractiveCount = frame.contentDocument?.body?.querySelectorAll?.('a, button, input, form, select, textarea')?.length || 0;
-
-            if (bodyText.length < 60 && bodyMediaCount === 0 && bodyInteractiveCount === 0) {
-              logServiceEvent('error', 'El iframe cargo contenido no visible o vacio para un servicio de alto riesgo', {
-                url: currentServiceUrl,
-                title: currentServiceTitle,
-                elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
-              });
-              showServiceError();
-              return;
-            }
-          } catch (error) {
-            logServiceEvent('warn', 'No se pudo verificar visibilidad interna del servicio de alto riesgo; se mantiene validacion normal', {
-              url: currentServiceUrl,
-              title: currentServiceTitle,
-            });
-          }
-        }
-
         window.setTimeout(() => {
-          clearServiceLoadTimer();
-          hideServiceError();
-          frameStage.classList.remove('is-transitioning');
-          updateHeader(currentServiceTitle, true);
-          logServiceEvent('info', 'Servicio cargado en iframe', {
-            url: currentServiceUrl,
-            title: currentServiceTitle,
-            elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
-          });
+          finalizeServiceReady(elapsedMs);
         }, 220);
       }, SERVICE_TRANSITION_DURATION);
     }
