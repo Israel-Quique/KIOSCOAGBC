@@ -2,6 +2,8 @@ const HOME_PAGE = 'index2.html';
 const REBUILD_DURATION = 1100;
 const SERVICE_TRANSITION_DURATION = 850;
 const SERVICE_LOAD_TIMEOUT = 10000;
+const SERVICE_RETRY_DELAY = 1800;
+const MAX_SERVICE_RETRIES = 2;
 const CARD_FLIP_INTERVAL = 2000;
 const CARD_SHAKE_DURATION = 1000;
 const IDLE_TIMEOUT = 12000;
@@ -9,6 +11,7 @@ const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 6;
 const IDLE_LOGO_ANIMATION_DURATION = 3600;
 const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
+const CALCULADORA_URL = 'https://postar.correos.gob.bo:8104/';
 const RECLAMOS_URL = 'https://sireco.correos.gob.bo:8102/';
 const RECLAMOS_ANCHOR = '#contactanos';
 
@@ -20,20 +23,39 @@ function isTrackingService(url) {
   return typeof url === 'string' && url.toLowerCase().includes('trackingbo');
 }
 
+function isSessionSensitiveService(url) {
+  const normalizedUrl = (url || '').toLowerCase();
+  return normalizedUrl.startsWith(CALCULADORA_URL) || normalizedUrl.startsWith(RECLAMOS_URL);
+}
+
+function addKioskRuntimeStamp(url) {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('kiosk_ts', String(Date.now()));
+    return parsed.toString();
+  } catch (error) {
+    return url;
+  }
+}
+
 function normalizeServiceUrl(url) {
   if (typeof url !== 'string') {
     return url;
   }
 
-  const trimmedUrl = url.trim();
-  const normalizedUrl = trimmedUrl.toLowerCase();
+  let finalUrl = url.trim();
+  const normalizedUrl = finalUrl.toLowerCase();
   const isReclamos = normalizedUrl.startsWith(RECLAMOS_URL);
 
-  if (isReclamos && !trimmedUrl.includes('#')) {
-    return `${trimmedUrl}${RECLAMOS_ANCHOR}`;
+  if (isReclamos && !finalUrl.includes('#')) {
+    finalUrl = `${finalUrl}${RECLAMOS_ANCHOR}`;
   }
 
-  return trimmedUrl;
+  if (isSessionSensitiveService(finalUrl)) {
+    finalUrl = addKioskRuntimeStamp(finalUrl);
+  }
+
+  return finalUrl;
 }
 
 function isReclamosService(url) {
@@ -404,6 +426,7 @@ function setupParentShell() {
   let pendingServiceUrl = null;
   let serviceLoadTimer = null;
   let serviceLoadStartedAt = null;
+  let currentRetryCount = 0;
   const externalServiceOverlay = document.getElementById('externalServiceOverlay');
   const externalServiceTitle = document.getElementById('externalServiceTitle');
   const externalServiceMessage = document.getElementById('externalServiceMessage');
@@ -431,6 +454,10 @@ function setupParentShell() {
       window.clearTimeout(serviceLoadTimer);
       serviceLoadTimer = null;
     }
+  };
+
+  const resetRetryState = () => {
+    currentRetryCount = 0;
   };
 
   const updateHeader = (title, isService) => {
@@ -478,6 +505,46 @@ function setupParentShell() {
     serviceErrorState.hidden = false;
     serviceErrorState.classList.add('is-loading');
     frameStage.classList.add('has-service-error');
+  };
+
+  const showServiceRetrying = (attemptNumber) => {
+    setServiceStatus(
+      'Reconectando servicio...',
+      `El navegador detecto un problema al cargar. Reintentando automaticamente (${attemptNumber}/${MAX_SERVICE_RETRIES})...`
+    );
+    serviceErrorState.hidden = false;
+    serviceErrorState.classList.add('is-loading');
+    frameStage.classList.add('has-service-error');
+  };
+
+  const scheduleServiceRetry = (reason) => {
+    if (!pendingServiceUrl || currentRetryCount >= MAX_SERVICE_RETRIES) {
+      return false;
+    }
+
+    currentRetryCount += 1;
+    clearServiceLoadTimer();
+    showServiceRetrying(currentRetryCount);
+    logServiceEvent('warn', 'Reintentando carga del servicio', {
+      url: currentServiceUrl,
+      title: currentServiceTitle,
+      reason,
+      retryAttempt: currentRetryCount,
+      maxRetries: MAX_SERVICE_RETRIES,
+      retryDelayMs: SERVICE_RETRY_DELAY,
+    });
+
+    window.setTimeout(() => {
+      serviceLoadStartedAt = Date.now();
+      frame.src = normalizeServiceUrl(pendingServiceUrl);
+      serviceLoadTimer = window.setTimeout(() => {
+        if (!scheduleServiceRetry('timeout')) {
+          showServiceError();
+        }
+      }, SERVICE_LOAD_TIMEOUT);
+    }, SERVICE_RETRY_DELAY);
+
+    return true;
   };
 
   const showServiceError = () => {
@@ -562,6 +629,7 @@ function setupParentShell() {
     currentServiceUrl = HOME_PAGE;
     currentServiceTitle = 'Panel principal';
     pendingServiceUrl = null;
+    resetRetryState();
     clearServiceLoadTimer();
     frameStage.classList.remove('is-transitioning');
     frameStage.classList.remove('is-rebuilding');
@@ -599,6 +667,7 @@ function setupParentShell() {
     currentServiceTitle = title || 'Servicio AGBC';
     pendingServiceUrl = normalizedUrl;
     serviceLoadStartedAt = Date.now();
+    resetRetryState();
     frameStage.classList.toggle('is-reclamos-view', isReclamosService(normalizedUrl));
     updateHeader(currentServiceTitle, true);
     frameStage.classList.remove('is-rebuilding');
@@ -628,6 +697,7 @@ function setupParentShell() {
     navigatingHome = true;
     currentServiceUrl = HOME_PAGE;
     pendingServiceUrl = null;
+    resetRetryState();
     clearServiceLoadTimer();
     serviceLoadStartedAt = null;
     hideServiceError();
@@ -684,7 +754,9 @@ function setupParentShell() {
             title: currentServiceTitle,
             elapsedMs: serviceLoadStartedAt ? Date.now() - serviceLoadStartedAt : elapsedMs,
           });
-          showServiceError();
+          if (!scheduleServiceRetry('browser-error-page')) {
+            showServiceError();
+          }
           return;
         }
 
@@ -701,7 +773,9 @@ function setupParentShell() {
       title: currentServiceTitle,
       hint: 'Este evento no siempre se dispara en bloqueos cross-origin, pero si aparece indica fallo de carga directo.',
     });
-    showServiceError();
+    if (!scheduleServiceRetry('iframe-error-event')) {
+      showServiceError();
+    }
   });
 
   externalServiceCancel.addEventListener('click', () => {
