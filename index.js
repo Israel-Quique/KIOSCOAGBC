@@ -4,6 +4,8 @@ const SERVICE_TRANSITION_DURATION = 850;
 const SERVICE_LOAD_TIMEOUT = 10000;
 const SERVICE_RETRY_DELAY = 1800;
 const MAX_SERVICE_RETRIES = 2;
+const SERVICE_IDLE_TIMEOUT = 180000;
+const IFRAME_RESET_DELAY = 120;
 const CARD_FLIP_INTERVAL = 2000;
 const CARD_SHAKE_DURATION = 1000;
 const IDLE_TIMEOUT = 12000;
@@ -56,6 +58,20 @@ function normalizeServiceUrl(url) {
   }
 
   return finalUrl;
+}
+
+function buildFreshServiceUrl(url) {
+  if (typeof url !== 'string' || isHomeView(url)) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('kiosk_nav', String(Date.now()));
+    return parsed.toString();
+  } catch (error) {
+    return `${url}${url.includes('?') ? '&' : '?'}kiosk_nav=${Date.now()}`;
+  }
 }
 
 function isReclamosService(url) {
@@ -424,9 +440,11 @@ function setupParentShell() {
   let currentServiceTitle = 'Panel principal';
   let navigatingHome = false;
   let pendingServiceUrl = null;
+  let pendingServiceBaseUrl = null;
   let serviceLoadTimer = null;
   let serviceLoadStartedAt = null;
   let currentRetryCount = 0;
+  let serviceIdleTimer = null;
   const externalServiceOverlay = document.getElementById('externalServiceOverlay');
   const externalServiceTitle = document.getElementById('externalServiceTitle');
   const externalServiceMessage = document.getElementById('externalServiceMessage');
@@ -460,6 +478,38 @@ function setupParentShell() {
     currentRetryCount = 0;
   };
 
+  const clearServiceIdleTimer = () => {
+    if (serviceIdleTimer) {
+      window.clearTimeout(serviceIdleTimer);
+      serviceIdleTimer = null;
+    }
+  };
+
+  const scheduleServiceIdleReturn = () => {
+    clearServiceIdleTimer();
+
+    if (isHomeView(currentServiceUrl) || externalServiceOverlay.hidden === false) {
+      return;
+    }
+
+    serviceIdleTimer = window.setTimeout(() => {
+      logServiceEvent('info', 'Retorno automatico al menu por inactividad', {
+        url: currentServiceUrl,
+        title: currentServiceTitle,
+        idleTimeoutMs: SERVICE_IDLE_TIMEOUT,
+      });
+      goHome();
+    }, SERVICE_IDLE_TIMEOUT);
+  };
+
+  const registerServiceInteraction = () => {
+    if (isHomeView(currentServiceUrl)) {
+      return;
+    }
+
+    scheduleServiceIdleReturn();
+  };
+
   const updateHeader = (title, isService) => {
     mainTitle.textContent = isService ? title.toUpperCase() : '';
     frameStage.classList.toggle('is-service', isService);
@@ -470,6 +520,7 @@ function setupParentShell() {
     externalServiceFrame.src = 'about:blank';
     pendingExternalUrl = null;
     pendingExternalTitle = null;
+    registerServiceInteraction();
   };
 
   const showExternalOverlay = (url, title) => {
@@ -518,7 +569,7 @@ function setupParentShell() {
   };
 
   const scheduleServiceRetry = (reason) => {
-    if (!pendingServiceUrl || currentRetryCount >= MAX_SERVICE_RETRIES) {
+    if (!pendingServiceBaseUrl || currentRetryCount >= MAX_SERVICE_RETRIES) {
       return false;
     }
 
@@ -536,7 +587,12 @@ function setupParentShell() {
 
     window.setTimeout(() => {
       serviceLoadStartedAt = Date.now();
-      frame.src = normalizeServiceUrl(pendingServiceUrl);
+      currentServiceUrl = buildFreshServiceUrl(pendingServiceBaseUrl);
+      pendingServiceUrl = currentServiceUrl;
+      frame.src = 'about:blank';
+      window.setTimeout(() => {
+        frame.src = currentServiceUrl;
+      }, IFRAME_RESET_DELAY);
       serviceLoadTimer = window.setTimeout(() => {
         if (!scheduleServiceRetry('timeout')) {
           showServiceError();
@@ -629,8 +685,10 @@ function setupParentShell() {
     currentServiceUrl = HOME_PAGE;
     currentServiceTitle = 'Panel principal';
     pendingServiceUrl = null;
+    pendingServiceBaseUrl = null;
     resetRetryState();
     clearServiceLoadTimer();
+    clearServiceIdleTimer();
     frameStage.classList.remove('is-transitioning');
     frameStage.classList.remove('is-rebuilding');
     navigatingHome = false;
@@ -663,11 +721,13 @@ function setupParentShell() {
     }
 
     hideExternalOverlay();
-    currentServiceUrl = normalizedUrl;
+    currentServiceUrl = buildFreshServiceUrl(normalizedUrl);
     currentServiceTitle = title || 'Servicio AGBC';
-    pendingServiceUrl = normalizedUrl;
+    pendingServiceBaseUrl = normalizedUrl;
+    pendingServiceUrl = currentServiceUrl;
     serviceLoadStartedAt = Date.now();
     resetRetryState();
+    clearServiceIdleTimer();
     frameStage.classList.toggle('is-reclamos-view', isReclamosService(normalizedUrl));
     updateHeader(currentServiceTitle, true);
     frameStage.classList.remove('is-rebuilding');
@@ -683,22 +743,26 @@ function setupParentShell() {
     clearServiceLoadTimer();
     serviceLoadTimer = window.setTimeout(showServiceError, SERVICE_LOAD_TIMEOUT);
 
+    frame.src = 'about:blank';
     window.setTimeout(() => {
-      frame.src = normalizedUrl;
+      frame.src = currentServiceUrl;
       logServiceEvent('info', 'src del iframe actualizado', {
         requestedUrl: url,
-        url: normalizedUrl,
+        url: currentServiceUrl,
+        baseUrl: normalizedUrl,
         title: currentServiceTitle,
       });
-    }, 140);
+    }, IFRAME_RESET_DELAY);
   };
 
   const goHome = () => {
     navigatingHome = true;
     currentServiceUrl = HOME_PAGE;
     pendingServiceUrl = null;
+    pendingServiceBaseUrl = null;
     resetRetryState();
     clearServiceLoadTimer();
+    clearServiceIdleTimer();
     serviceLoadStartedAt = null;
     hideServiceError();
     hideExternalOverlay();
@@ -711,6 +775,7 @@ function setupParentShell() {
       nextUrl: HOME_PAGE,
     });
 
+    frame.src = 'about:blank';
     window.setTimeout(() => {
       frame.src = HOME_PAGE;
     }, 220);
@@ -762,6 +827,7 @@ function setupParentShell() {
 
         window.setTimeout(() => {
           finalizeServiceReady(elapsedMs);
+          scheduleServiceIdleReturn();
         }, 220);
       }, SERVICE_TRANSITION_DURATION);
     }
@@ -805,6 +871,13 @@ function setupParentShell() {
       hideExternalOverlay();
     }
   });
+
+  ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel'].forEach((eventName) => {
+    window.addEventListener(eventName, registerServiceInteraction, { passive: true });
+  });
+
+  frame.addEventListener('focus', registerServiceInteraction);
+  frame.addEventListener('mouseenter', registerServiceInteraction);
 
   window.addEventListener('message', (event) => {
     const { data } = event;
