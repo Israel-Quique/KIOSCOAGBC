@@ -670,8 +670,8 @@ body {
 }
 
 .tracking-page {
-  height: 100%;
-  min-height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
   background:
     radial-gradient(circle at top center, rgba(255, 255, 255, 0.38), transparent 30%),
@@ -680,12 +680,13 @@ body {
 
 .tracking-main {
   width: 100%;
-  height: 184%;
-  min-height: 0;
-  margin-top: 0px;
-  padding: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin-top: 0;
+  padding: 24px 0;
   display: grid;
   place-items: center;
+  align-content: center;
   position: relative;
   isolation: isolate;
 }
@@ -696,7 +697,7 @@ body {
   z-index: 4;
   display: grid;
   place-items: center;
-  padding: 0;
+  padding: 24px 0;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -728,8 +729,9 @@ body {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 100vw;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
   max-width: none;
   padding: 0;
   border-radius: 0;
@@ -742,17 +744,18 @@ body {
 }
 
 .idle-logo-mosaic {
-  --logo-size: min(2080px, 116vw);
-  --idle-logo-shift-x: -5.5%;
+  --idle-grid-count: 4;
+  --logo-size: min(1480px, 98vw);
+  --idle-logo-shift-x: 0%;
   position: relative;
   place-self: center;
   width: var(--logo-size);
   max-width: 100%;
-  height: min(100vh, calc(var(--logo-size) / 3.35));
+  height: min(82vh, calc(var(--logo-size) / 3.35));
   aspect-ratio: 3.35 / 1;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-columns: repeat(var(--idle-grid-count), 1fr);
+  grid-template-rows: repeat(var(--idle-grid-count), 1fr);
   gap: 0;
   margin: 0;
   padding: 0;
@@ -770,7 +773,7 @@ body {
   border-radius: 40px;
   background: radial-gradient(circle, rgba(255, 247, 213, 0.28), rgba(255, 242, 192, 0) 72%);
   opacity: 0.34;
-  filter: blur(16px);
+  filter: blur(10px);
 }
 
 .idle-logo-mosaic__tile {
@@ -789,7 +792,7 @@ body {
 }
 
 .tracking-main.is-idle .idle-logo-mosaic__tile {
-  animation: idleLogoAssembled 4.2s ease-in-out infinite;
+  animation: none;
 }
 
 .tracking-main.is-idle .idle-logo-mosaic.is-animating .idle-logo-mosaic__tile {
@@ -849,13 +852,15 @@ body {
   grid-template-columns: repeat(4, 350px);
   gap: 48px;
   align-items: stretch;
+  justify-items: stretch;
   width: fit-content;
   max-width: calc(100% - 48px);
   height: auto;
-  min-height: 0;
+  min-height: calc(100dvh - 48px);
   align-content: center;
   justify-content: center;
-  margin: auto;
+  place-self: center;
+  margin: 0 auto;
   animation: servicesGridLift 1s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
 }
 
@@ -1044,6 +1049,7 @@ body {
   height: auto;
   display: block;
   object-fit: contain;
+  contain: paint;
   filter: drop-shadow(0 16px 24px rgba(20, 49, 86, 0.12));
   transform: none;
   transition: transform 0.45s var(--ease-out);
@@ -1070,6 +1076,7 @@ body {
 .qr-image {
   width: min(220px, 100%);
   aspect-ratio: 1 / 1;
+  height: auto;
   padding: 10px;
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.96);
@@ -2023,6 +2030,26 @@ body {
     width: min(620px, calc(100vw - 80px));
     height: 280px;
     transform: scale(1.18);
+  }
+}
+
+@supports not (height: 100dvh) {
+  .tracking-page {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  .tracking-main {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  .idle-attractor__content {
+    min-height: 100vh;
+  }
+
+  .services-grid {
+    min-height: calc(100vh - 48px);
   }
 }
 

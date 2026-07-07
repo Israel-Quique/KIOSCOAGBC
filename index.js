@@ -10,8 +10,11 @@ const CARD_FLIP_INTERVAL = 2000;
 const CARD_SHAKE_DURATION = 1000;
 const IDLE_TIMEOUT = 12000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
-const IDLE_LOGO_TILE_COUNT = 6;
+const IDLE_LOGO_TILE_COUNT = 4;
 const IDLE_LOGO_ANIMATION_DURATION = 3600;
+const APP_PREVENTIVE_REFRESH_MS = 6 * 60 * 60 * 1000;
+const APP_PREVENTIVE_REFRESH_GRACE_MS = 2500;
+const MAX_SERVICE_OPENS_BEFORE_REFRESH = 24;
 const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
 const CALCULADORA_URL = 'https://postar.correos.gob.bo:8104/';
 const RECLAMOS_URL = 'https://sireco.correos.gob.bo:8102/';
@@ -193,6 +196,7 @@ function setupChildView() {
   let idleTimer = null;
   let idleActive = false;
   let idleLogoCycleTimer = null;
+  const idleResetEvents = ['pointermove', 'pointerdown', 'keydown', 'touchstart', 'wheel'];
 
   const createIdleLogoTiles = () => {
     if (!idleLogoMosaic || idleLogoMosaic.childElementCount > 0) {
@@ -300,11 +304,11 @@ function setupChildView() {
     idleTimer = window.setTimeout(enterIdleMode, IDLE_TIMEOUT);
   };
 
-  ['pointermove', 'pointerdown', 'keydown', 'touchstart', 'wheel'].forEach((eventName) => {
+  idleResetEvents.forEach((eventName) => {
     window.addEventListener(eventName, resetIdleTimer, { passive: true });
   });
 
-  document.addEventListener('visibilitychange', () => {
+  const handleVisibilityChange = () => {
     if (document.hidden) {
       exitIdleMode();
       if (idleTimer) {
@@ -314,7 +318,9 @@ function setupChildView() {
     }
 
     resetIdleTimer();
-  });
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   cards.forEach((card) => {
     let flipInterval = null;
@@ -399,14 +405,31 @@ function setupChildView() {
     });
   });
 
-  window.addEventListener('message', (event) => {
+  const handleMessage = (event) => {
     if (event.data?.type === 'play-home-intro') {
       trackingMain.classList.remove('rebuild-sequence');
       void trackingMain.offsetWidth;
       trackingMain.classList.add('rebuild-sequence');
       resetIdleTimer();
     }
-  });
+  };
+
+  const teardownChildView = () => {
+    if (idleTimer) {
+      window.clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+
+    clearIdleLogoCycle();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('message', handleMessage);
+    idleResetEvents.forEach((eventName) => {
+      window.removeEventListener(eventName, resetIdleTimer, { passive: true });
+    });
+  };
+
+  window.addEventListener('message', handleMessage);
+  window.addEventListener('pagehide', teardownChildView, { once: true });
 
   createIdleLogoTiles();
   resetIdleTimer();
@@ -445,6 +468,9 @@ function setupParentShell() {
   let serviceLoadStartedAt = null;
   let currentRetryCount = 0;
   let serviceIdleTimer = null;
+  let preventiveRefreshTimer = null;
+  let preventiveRefreshPending = false;
+  let serviceOpenCount = 0;
   const externalServiceOverlay = document.getElementById('externalServiceOverlay');
   const externalServiceTitle = document.getElementById('externalServiceTitle');
   const externalServiceMessage = document.getElementById('externalServiceMessage');
@@ -485,6 +511,61 @@ function setupParentShell() {
     }
   };
 
+  const clearPreventiveRefreshTimer = () => {
+    if (preventiveRefreshTimer) {
+      window.clearTimeout(preventiveRefreshTimer);
+      preventiveRefreshTimer = null;
+    }
+  };
+
+  const canRunPreventiveRefresh = () => (
+    !document.hidden &&
+    isHomeView(currentServiceUrl) &&
+    externalServiceOverlay.hidden !== false
+  );
+
+  const runPreventiveRefresh = (reason) => {
+    clearPreventiveRefreshTimer();
+    preventiveRefreshPending = false;
+    logServiceEvent('warn', 'Recarga preventiva del kiosco para liberar memoria', {
+      reason,
+      uptimeMs: performance.now ? Math.round(performance.now()) : null,
+      serviceOpenCount,
+    });
+    window.setTimeout(() => {
+      window.location.reload();
+    }, APP_PREVENTIVE_REFRESH_GRACE_MS);
+  };
+
+  const requestPreventiveRefresh = (reason) => {
+    if (canRunPreventiveRefresh()) {
+      runPreventiveRefresh(reason);
+      return;
+    }
+
+    preventiveRefreshPending = true;
+    logServiceEvent('info', 'Recarga preventiva diferida hasta volver al inicio', {
+      reason,
+      currentServiceUrl,
+      serviceOpenCount,
+    });
+  };
+
+  const schedulePreventiveRefresh = () => {
+    clearPreventiveRefreshTimer();
+    preventiveRefreshTimer = window.setTimeout(() => {
+      requestPreventiveRefresh('uptime-threshold');
+    }, APP_PREVENTIVE_REFRESH_MS);
+  };
+
+  const maybeRunPendingPreventiveRefresh = (reason) => {
+    if (!preventiveRefreshPending || !canRunPreventiveRefresh()) {
+      return;
+    }
+
+    runPreventiveRefresh(reason);
+  };
+
   const scheduleServiceIdleReturn = () => {
     clearServiceIdleTimer();
 
@@ -521,6 +602,7 @@ function setupParentShell() {
     pendingExternalUrl = null;
     pendingExternalTitle = null;
     registerServiceInteraction();
+    maybeRunPendingPreventiveRefresh('overlay-closed');
   };
 
   const showExternalOverlay = (url, title) => {
@@ -700,6 +782,7 @@ function setupParentShell() {
       url: HOME_PAGE,
       title: currentServiceTitle,
     });
+    maybeRunPendingPreventiveRefresh('home-ready');
 
     try {
       frame.contentWindow?.postMessage({ type: 'play-home-intro' }, '*');
@@ -723,6 +806,7 @@ function setupParentShell() {
     hideExternalOverlay();
     currentServiceUrl = buildFreshServiceUrl(normalizedUrl);
     currentServiceTitle = title || 'Servicio AGBC';
+    serviceOpenCount += 1;
     pendingServiceBaseUrl = normalizedUrl;
     pendingServiceUrl = currentServiceUrl;
     serviceLoadStartedAt = Date.now();
@@ -737,9 +821,13 @@ function setupParentShell() {
       requestedUrl: url,
       url: normalizedUrl,
       title: currentServiceTitle,
+      serviceOpenCount,
       timeoutMs: SERVICE_LOAD_TIMEOUT,
       expectedBehavior: 'El iframe deberia emitir load antes del timeout.',
     });
+    if (serviceOpenCount >= MAX_SERVICE_OPENS_BEFORE_REFRESH) {
+      requestPreventiveRefresh('navigation-threshold');
+    }
     clearServiceLoadTimer();
     serviceLoadTimer = window.setTimeout(showServiceError, SERVICE_LOAD_TIMEOUT);
 
@@ -904,6 +992,7 @@ function setupParentShell() {
 
   updateHeader(currentServiceTitle, false);
   hideServiceError();
+  schedulePreventiveRefresh();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -911,7 +1000,10 @@ window.addEventListener('DOMContentLoaded', () => {
     logServiceEvent('warn', 'La aplicacion se esta ejecutando en file://. Para iframes y postMessage confiables, usa http://localhost');
   }
   applyTimeOfDayTheme();
-  window.setInterval(applyTimeOfDayTheme, 60000);
+  const themeTimer = window.setInterval(applyTimeOfDayTheme, 60000);
+  window.addEventListener('pagehide', () => {
+    window.clearInterval(themeTimer);
+  }, { once: true });
   setupChildView();
   setupParentShell();
 });
