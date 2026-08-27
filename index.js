@@ -12,8 +12,10 @@ const IDLE_TIMEOUT = 12000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 4;
 const IDLE_LOGO_ANIMATION_DURATION = 3600;
-const APP_PREVENTIVE_REFRESH_MS = 6 * 60 * 60 * 1000;
+const APP_PREVENTIVE_REFRESH_MS = 3 * 60 * 60 * 1000;
 const APP_PREVENTIVE_REFRESH_GRACE_MS = 2500;
+const PREVENTIVE_REFRESH_MAX_DEFER_MS = 15 * 60 * 1000;
+const ABSOLUTE_MAX_UPTIME_MS = 8 * 60 * 60 * 1000;
 const MAX_SERVICE_OPENS_BEFORE_REFRESH = 24;
 const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
 const CALCULADORA_URL = 'https://postar.correos.gob.bo:8104/';
@@ -470,6 +472,8 @@ function setupParentShell() {
   let serviceIdleTimer = null;
   let preventiveRefreshTimer = null;
   let preventiveRefreshPending = false;
+  let preventiveRefreshPendingSince = null;
+  let preventiveRefreshWatchdogTimer = null;
   let serviceOpenCount = 0;
   const externalServiceOverlay = document.getElementById('externalServiceOverlay');
   const externalServiceTitle = document.getElementById('externalServiceTitle');
@@ -527,6 +531,7 @@ function setupParentShell() {
   const runPreventiveRefresh = (reason) => {
     clearPreventiveRefreshTimer();
     preventiveRefreshPending = false;
+    preventiveRefreshPendingSince = null;
     logServiceEvent('warn', 'Recarga preventiva del kiosco para liberar memoria', {
       reason,
       uptimeMs: performance.now ? Math.round(performance.now()) : null,
@@ -543,11 +548,16 @@ function setupParentShell() {
       return;
     }
 
-    preventiveRefreshPending = true;
+    if (!preventiveRefreshPending) {
+      preventiveRefreshPending = true;
+      preventiveRefreshPendingSince = Date.now();
+    }
+
     logServiceEvent('info', 'Recarga preventiva diferida hasta volver al inicio', {
       reason,
       currentServiceUrl,
       serviceOpenCount,
+      deferredForMs: Date.now() - preventiveRefreshPendingSince,
     });
   };
 
@@ -556,6 +566,36 @@ function setupParentShell() {
     preventiveRefreshTimer = window.setTimeout(() => {
       requestPreventiveRefresh('uptime-threshold');
     }, APP_PREVENTIVE_REFRESH_MS);
+  };
+
+  const clearPreventiveRefreshWatchdog = () => {
+    if (preventiveRefreshWatchdogTimer) {
+      window.clearInterval(preventiveRefreshWatchdogTimer);
+      preventiveRefreshWatchdogTimer = null;
+    }
+  };
+
+  const checkPreventiveRefreshWatchdog = () => {
+    if (!preventiveRefreshPending || !preventiveRefreshPendingSince) {
+      return;
+    }
+
+    const deferredForMs = Date.now() - preventiveRefreshPendingSince;
+
+    if (deferredForMs >= PREVENTIVE_REFRESH_MAX_DEFER_MS) {
+      logServiceEvent('warn', 'Forzando recarga preventiva: espera maxima superada dentro de un servicio', {
+        deferredForMs,
+        currentServiceUrl,
+        currentServiceTitle,
+        serviceOpenCount,
+      });
+      runPreventiveRefresh('forced-after-max-defer');
+    }
+  };
+
+  const startPreventiveRefreshWatchdog = () => {
+    clearPreventiveRefreshWatchdog();
+    preventiveRefreshWatchdogTimer = window.setInterval(checkPreventiveRefreshWatchdog, 30000);
   };
 
   const maybeRunPendingPreventiveRefresh = (reason) => {
@@ -993,6 +1033,21 @@ function setupParentShell() {
   updateHeader(currentServiceTitle, false);
   hideServiceError();
   schedulePreventiveRefresh();
+  startPreventiveRefreshWatchdog();
+
+  const absoluteMaxUptimeTimer = window.setTimeout(() => {
+    logServiceEvent('warn', 'Recarga forzada por tiempo maximo de actividad del kiosco', {
+      uptimeMs: performance.now ? Math.round(performance.now()) : null,
+      serviceOpenCount,
+    });
+    window.location.reload();
+  }, ABSOLUTE_MAX_UPTIME_MS);
+
+  window.addEventListener('pagehide', () => {
+    clearPreventiveRefreshTimer();
+    clearPreventiveRefreshWatchdog();
+    window.clearTimeout(absoluteMaxUptimeTimer);
+  }, { once: true });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
