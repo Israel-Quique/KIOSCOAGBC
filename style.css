@@ -779,7 +779,7 @@ body {
 .idle-logo-mosaic__tile {
   position: relative;
   border-radius: 0;
-  background-image: url("Finalfondo.png");
+  background-image: url("Correos4.png");
   background-repeat: no-repeat;
   background-size: calc(var(--tile-count) * 100%) calc(var(--tile-count) * 100%);
   background-position:
