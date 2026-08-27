@@ -20,6 +20,7 @@ const MAX_SERVICE_OPENS_BEFORE_REFRESH = 24;
 const TRACKING_URL = 'https://trackingbo.correos.gob.bo:8100/';
 const CALCULADORA_URL = 'https://postar.correos.gob.bo:8104/';
 const RECLAMOS_URL = 'https://sireco.correos.gob.bo:8102/';
+const TICKET_URL = 'http://172.65.10.55:8106/tickets';
 const RECLAMOS_ANCHOR = '#contactanos';
 
 function isHomeView(url) {
@@ -154,6 +155,7 @@ function getServiceDiagnostics(url, title) {
 function setupChildView() {
   const trackingMain = document.querySelector('.tracking-main');
   const cards = document.querySelectorAll('.service-card');
+  const ticketHub = document.getElementById('ticketHub');
   const trackingLaunch = document.querySelector('[data-tracking-launch]');
   const externalLaunchButtons = document.querySelectorAll('[data-external-launch]');
   const idleLogoMosaic = document.getElementById('idleLogoMosaic');
@@ -190,6 +192,21 @@ function setupChildView() {
       window.location.href = targetUrl;
     });
   });
+
+  if (ticketHub) {
+    ticketHub.addEventListener('click', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'open-service',
+          url: TICKET_URL,
+          title: 'Sacar turno',
+        }, '*');
+        return;
+      }
+
+      window.location.href = TICKET_URL;
+    });
+  }
 
   if (!trackingMain || cards.length === 0) {
     return;
