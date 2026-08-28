@@ -1223,6 +1223,8 @@ body {
 
 .service-card--bottom-center .kiosk-card-shell {
   justify-self: center;
+  width: 96%;
+  max-width: 646px;
 }
 
 .kiosk-card-shell--bottom {
