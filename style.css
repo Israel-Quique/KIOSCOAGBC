@@ -912,9 +912,9 @@ body {
 .services-grid--kiosk {
   position: relative;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 6px;
+  column-gap: 0;
   row-gap: 44px;
-  width: min(100%, 1560px);
+  width: min(100%, 1380px);
   max-width: calc(100% - 24px);
   min-height: calc(100dvh - 28px);
   padding: 24px 8px 8px;
@@ -941,13 +941,13 @@ body {
 .service-card--top-left {
   grid-column: 1;
   grid-row: 1;
-  margin-right: -44px;
+  margin-right: -120px;
 }
 
 .service-card--top-right {
   grid-column: 3;
   grid-row: 1;
-  margin-left: -44px;
+  margin-left: -120px;
 }
 
 .service-card--bottom-left {
@@ -2487,8 +2487,8 @@ body {
 
   .services-grid--kiosk {
     grid-template-columns: repeat(3, minmax(240px, 1fr));
-    column-gap: 4px;
-    width: min(100%, 1120px);
+    column-gap: 0;
+    width: min(100%, 980px);
     max-width: calc(100% - 20px);
     row-gap: 34px;
     padding: 112px 14px 14px;
@@ -2503,11 +2503,11 @@ body {
   }
 
   .service-card--top-left {
-    margin-right: -28px;
+    margin-right: -72px;
   }
 
   .service-card--top-right {
-    margin-left: -28px;
+    margin-left: -72px;
   }
 
   .service-card--kiosk .card-title {
