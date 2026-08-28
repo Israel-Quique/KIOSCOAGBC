@@ -8,11 +8,13 @@ const SERVICE_IDLE_TIMEOUT = 180000;
 const IFRAME_RESET_DELAY = 120;
 const CARD_FLIP_INTERVAL = 2000;
 const CARD_SHAKE_DURATION = 1000;
-const IDLE_TIMEOUT = 12000;
+const IDLE_TIMEOUT = 5 * 60 * 1000;
 const IDLE_LOGO_CYCLE_DELAY = 30000;
 const IDLE_LOGO_TILE_COUNT = 4;
 const IDLE_LOGO_ANIMATION_DURATION = 3600;
-const APP_PREVENTIVE_REFRESH_MS = 3 * 60 * 60 * 1000;
+const PROMO_MESSAGE_INTERVAL_MS = 30 * 60 * 1000;
+const PROMO_MESSAGE_DURATION_MS = 10000;
+const APP_PREVENTIVE_REFRESH_MS = 60 * 60 * 1000;
 const APP_PREVENTIVE_REFRESH_GRACE_MS = 2500;
 const PREVENTIVE_REFRESH_MAX_DEFER_MS = 15 * 60 * 1000;
 const ABSOLUTE_MAX_UPTIME_MS = 8 * 60 * 60 * 1000;
@@ -215,6 +217,9 @@ function setupChildView() {
   let idleTimer = null;
   let idleActive = false;
   let idleLogoCycleTimer = null;
+  let promoTimer = null;
+  let promoIntervalTimer = null;
+  let promoActive = false;
   const idleResetEvents = ['pointermove', 'pointerdown', 'keydown', 'touchstart', 'wheel'];
 
   const createIdleLogoTiles = () => {
@@ -285,7 +290,26 @@ function setupChildView() {
     }
   };
 
+  const clearPromoTimer = () => {
+    if (promoTimer) {
+      window.clearTimeout(promoTimer);
+      promoTimer = null;
+    }
+  };
+
+  const exitPromoMode = () => {
+    if (!promoActive) {
+      return;
+    }
+
+    promoActive = false;
+    trackingMain.classList.remove('is-promo');
+    clearPromoTimer();
+  };
+
   const exitIdleMode = () => {
+    exitPromoMode();
+
     if (!idleActive) {
       return;
     }
@@ -312,6 +336,26 @@ function setupChildView() {
     trackingMain.classList.add('is-idle');
     cycleIdleLogoAnimation();
     scheduleIdleLogoCycle();
+  };
+
+  const showTicketPromo = () => {
+    if (document.hidden || idleActive) {
+      return;
+    }
+
+    promoActive = true;
+    trackingMain.classList.add('is-idle', 'is-promo');
+    cycleIdleLogoAnimation();
+    clearPromoTimer();
+    promoTimer = window.setTimeout(() => {
+      promoActive = false;
+      trackingMain.classList.remove('is-promo');
+      trackingMain.classList.remove('is-idle');
+      if (idleLogoMosaic) {
+        idleLogoMosaic.classList.remove('is-animating');
+      }
+      resetIdleTimer();
+    }, PROMO_MESSAGE_DURATION_MS);
   };
 
   const resetIdleTimer = () => {
@@ -341,12 +385,15 @@ function setupChildView() {
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
+  promoIntervalTimer = window.setInterval(showTicketPromo, PROMO_MESSAGE_INTERVAL_MS);
+
   cards.forEach((card) => {
     let flipInterval = null;
     let flipStartTimer = null;
     let launchTimer = null;
     const url = card.dataset.url;
     const title = card.dataset.title;
+    const isDisabled = card.dataset.disabled === 'true';
 
     const clearFlipCycle = () => {
       if (flipStartTimer) {
@@ -387,6 +434,10 @@ function setupChildView() {
     };
 
     card.addEventListener('pointerenter', () => {
+      if (isDisabled) {
+        return;
+      }
+
       exitIdleMode();
       if (card.classList.contains('is-launching')) {
         return;
@@ -396,6 +447,10 @@ function setupChildView() {
     });
 
     card.addEventListener('pointerleave', () => {
+      if (isDisabled) {
+        return;
+      }
+
       if (card.classList.contains('is-launching')) {
         return;
       }
@@ -406,6 +461,10 @@ function setupChildView() {
     });
 
     card.addEventListener('click', () => {
+      if (isDisabled) {
+        return;
+      }
+
       if (card.classList.contains('is-launching')) {
         return;
       }
@@ -437,6 +496,12 @@ function setupChildView() {
     if (idleTimer) {
       window.clearTimeout(idleTimer);
       idleTimer = null;
+    }
+
+    clearPromoTimer();
+    if (promoIntervalTimer) {
+      window.clearInterval(promoIntervalTimer);
+      promoIntervalTimer = null;
     }
 
     clearIdleLogoCycle();

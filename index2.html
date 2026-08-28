@@ -18,11 +18,14 @@
       <div class="idle-attractor__halo"></div>
       <div class="idle-attractor__content">
         <div class="idle-logo-mosaic" id="idleLogoMosaic" aria-hidden="true"></div>
+        <span class="idle-attractor__label">Correos de Bolivia</span>
+        <strong class="idle-attractor__title">Saque aqui su ticket</strong>
+        <p class="idle-attractor__text">Use el boton central para obtener su turno rapidamente.</p>
       </div>
     </div>
 
     <section class="services-grid services-grid--kiosk" aria-label="Servicios disponibles">
-      <article class="service-card service-card--kiosk service-card--tracking" data-url="https://trackingbo.correos.gob.bo:8100/"
+      <article class="service-card service-card--kiosk service-card--tracking service-card--top-left" data-url="https://trackingbo.correos.gob.bo:8100/"
         data-title="Rastreo de encomiendas">
         <div class="kiosk-card-shell kiosk-card-shell--top">
           <div class="kiosk-card-band">
@@ -37,7 +40,7 @@
         </div>
       </article>
 
-      <article class="service-card service-card--kiosk service-card--calculator" data-url="https://postar.correos.gob.bo:8104/"
+      <article class="service-card service-card--kiosk service-card--calculator service-card--top-right" data-url="https://postar.correos.gob.bo:8104/"
         data-title="Calculadora de tarifas">
         <div class="kiosk-card-shell kiosk-card-shell--top">
           <div class="kiosk-card-band">
@@ -52,12 +55,12 @@
         </div>
       </article>
 
-      <article class="service-card service-card--kiosk service-card--claims" data-url="https://sireco.correos.gob.bo:8102/"
+      <article class="service-card service-card--kiosk service-card--claims service-card--bottom-left" data-url="https://sireco.correos.gob.bo:8102/"
         data-title="Reclamos y consultas">
         <div class="kiosk-card-shell kiosk-card-shell--bottom">
           <div class="kiosk-card-body kiosk-card-body--full">
-            <div class="service-media service-media--kiosk">
-              <img src="RECLAMO2.png" class="service-image service-image--kiosk" alt="Sistema de reclamos"
+            <div class="service-media service-media--kiosk service-media--hidden">
+              <img src="RECLAMO2.png" class="service-image service-image--kiosk service-image--hidden" alt="Sistema de reclamos"
                 width="1038" height="1024" decoding="async">
             </div>
           </div>
@@ -67,12 +70,27 @@
         </div>
       </article>
 
-      <article class="service-card service-card--kiosk service-card--customs" data-url="https://ips.correos.gob.bo/CDS.Web/Operational/andeclaration.aspx"
-        data-title="Kiosco de aduana">
+      <article class="service-card service-card--kiosk service-card--preshipment service-card--bottom-center"
+        data-url="https://trackingbo.correos.gob.bo:8100/hacer-envio-desde-casa" data-title="Generar preenvio">
         <div class="kiosk-card-shell kiosk-card-shell--bottom">
           <div class="kiosk-card-body kiosk-card-body--full">
             <div class="service-media service-media--kiosk">
-              <img src="DECLARACION2.png" class="service-image service-image--kiosk"
+              <img src="Preenvio.jpg?v=20260828-1" class="service-image service-image--kiosk" alt="Generar preenvio"
+                width="1038" height="1024" decoding="async">
+            </div>
+          </div>
+          <div class="kiosk-card-band">
+            <h3 class="card-title">GENERAR PREENVIO</h3>
+          </div>
+        </div>
+      </article>
+
+      <article class="service-card service-card--kiosk service-card--customs service-card--bottom-right" data-url="https://ips.correos.gob.bo/CDS.Web/Operational/andeclaration.aspx"
+        data-title="Kiosco de aduana">
+        <div class="kiosk-card-shell kiosk-card-shell--bottom">
+          <div class="kiosk-card-body kiosk-card-body--full">
+            <div class="service-media service-media--kiosk service-media--hidden">
+              <img src="DECLARACION2.png" class="service-image service-image--kiosk service-image--hidden"
                 alt="Kiosco declaracion aduana" width="1008" height="1061" decoding="async">
             </div>
           </div>
@@ -85,7 +103,6 @@
       <button type="button" class="ticket-hub" id="ticketHub" aria-label="Sacar turno">
         <span class="ticket-hub__halo" aria-hidden="true"></span>
         <span class="ticket-hub__core">
-          <img src="KIOSCO.png" alt="" class="ticket-hub__icon" aria-hidden="true">
           <strong class="ticket-hub__title">TIQUET</strong>
           <span class="ticket-hub__pill">Sacar turno</span>
         </span>

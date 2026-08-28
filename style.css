@@ -729,6 +729,8 @@ body {
   z-index: 1;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 18px;
   width: 100%;
   height: 100%;
   min-height: 100dvh;
@@ -804,6 +806,39 @@ body {
 .idle-attractor__title,
 .idle-attractor__text {
   display: none;
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  text-shadow: 0 10px 28px rgba(10, 30, 54, 0.24);
+}
+
+.idle-attractor__label {
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(19, 41, 75, 0.14);
+  color: #17345a;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.idle-attractor__title {
+  max-width: min(940px, calc(100vw - 80px));
+  color: #153056;
+  font-size: clamp(2.4rem, 3vw + 1rem, 5rem);
+  font-weight: 800;
+  line-height: 0.98;
+  text-transform: uppercase;
+}
+
+.idle-attractor__text {
+  max-width: min(700px, calc(100vw - 120px));
+  margin: 0;
+  color: rgba(22, 50, 87, 0.88);
+  font-size: clamp(1rem, 1vw + 0.85rem, 1.45rem);
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .tracking-main.is-idle .idle-attractor {
@@ -813,6 +848,16 @@ body {
 
 .tracking-main.is-idle .idle-attractor__content {
   animation-duration: 4.2s;
+}
+
+.tracking-main.is-promo .idle-logo-mosaic {
+  display: none;
+}
+
+.tracking-main.is-promo .idle-attractor__label,
+.tracking-main.is-promo .idle-attractor__title,
+.tracking-main.is-promo .idle-attractor__text {
+  display: block;
 }
 
 .tracking-main.is-idle .services-grid {
@@ -866,13 +911,13 @@ body {
 
 .services-grid--kiosk {
   position: relative;
-  grid-template-columns: repeat(2, 620px);
-  column-gap: 16px;
-  row-gap: 16px;
-  width: min(100%, 1400px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 6px;
+  row-gap: 44px;
+  width: min(100%, 1560px);
   max-width: calc(100% - 24px);
   min-height: calc(100dvh - 28px);
-  padding: 8px;
+  padding: 24px 8px 8px;
   justify-content: center;
 }
 
@@ -891,6 +936,34 @@ body {
   height: 408px;
   perspective: none;
   opacity: 0;
+}
+
+.service-card--top-left {
+  grid-column: 1;
+  grid-row: 1;
+  margin-right: -44px;
+}
+
+.service-card--top-right {
+  grid-column: 3;
+  grid-row: 1;
+  margin-left: -44px;
+}
+
+.service-card--bottom-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.service-card--bottom-center {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 92px;
+}
+
+.service-card--bottom-right {
+  grid-column: 3;
+  grid-row: 2;
 }
 
 .service-card:nth-child(1),
@@ -999,27 +1072,30 @@ body {
   animation: cardInnerRise 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.service-card--kiosk:nth-child(1) .kiosk-card-band,
-.service-card--kiosk:nth-child(2) .kiosk-card-band {
+.service-card--top-left .kiosk-card-band,
+.service-card--top-right .kiosk-card-band {
   animation-delay: 0.28s;
 }
 
-.service-card--kiosk:nth-child(3) .kiosk-card-band,
-.service-card--kiosk:nth-child(4) .kiosk-card-band {
+.service-card--bottom-left .kiosk-card-band,
+.service-card--bottom-center .kiosk-card-band,
+.service-card--bottom-right .kiosk-card-band {
   animation-delay: 0.42s;
 }
 
-.service-card--kiosk:nth-child(1) .kiosk-card-body,
-.service-card--kiosk:nth-child(2) .kiosk-card-body,
-.service-card--kiosk:nth-child(1) .service-media,
-.service-card--kiosk:nth-child(2) .service-media {
+.service-card--top-left .kiosk-card-body,
+.service-card--top-right .kiosk-card-body,
+.service-card--top-left .service-media,
+.service-card--top-right .service-media {
   animation-delay: 0.38s;
 }
 
-.service-card--kiosk:nth-child(3) .kiosk-card-body,
-.service-card--kiosk:nth-child(4) .kiosk-card-body,
-.service-card--kiosk:nth-child(3) .service-media,
-.service-card--kiosk:nth-child(4) .service-media {
+.service-card--bottom-left .kiosk-card-body,
+.service-card--bottom-center .kiosk-card-body,
+.service-card--bottom-right .kiosk-card-body,
+.service-card--bottom-left .service-media,
+.service-card--bottom-center .service-media,
+.service-card--bottom-right .service-media {
   animation-delay: 0.52s;
 }
 
@@ -1135,14 +1211,18 @@ body {
   transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
 }
 
-.service-card--kiosk:nth-child(1) .kiosk-card-shell,
-.service-card--kiosk:nth-child(3) .kiosk-card-shell {
+.service-card--top-left .kiosk-card-shell,
+.service-card--bottom-left .kiosk-card-shell {
   justify-self: end;
 }
 
-.service-card--kiosk:nth-child(2) .kiosk-card-shell,
-.service-card--kiosk:nth-child(4) .kiosk-card-shell {
+.service-card--top-right .kiosk-card-shell,
+.service-card--bottom-right .kiosk-card-shell {
   justify-self: start;
+}
+
+.service-card--bottom-center .kiosk-card-shell {
+  justify-self: center;
 }
 
 .kiosk-card-shell--bottom {
@@ -1234,6 +1314,32 @@ body {
   overflow: hidden;
 }
 
+.service-media--hidden {
+  visibility: hidden;
+}
+
+.service-image--hidden {
+  visibility: hidden;
+}
+
+.service-media--placeholder {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at top, rgba(255, 249, 220, 0.95), rgba(255, 243, 202, 0.76) 55%, rgba(255, 239, 189, 0.45) 100%);
+}
+
+.service-placeholder-copy {
+  padding: 14px 20px;
+  border-radius: 999px;
+  background: rgba(19, 41, 75, 0.08);
+  color: #495a73;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .service-image--kiosk {
   position: absolute;
   inset: 14px 18px;
@@ -1250,10 +1356,10 @@ body {
 .ticket-hub {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(54% - 50px);
   z-index: 20;
-  width: 280px;
-  height: 280px;
+  width: 354px;
+  height: 354px;
   padding: 0;
   border: none;
   background: transparent;
@@ -1294,14 +1400,8 @@ body {
   box-shadow: 0 20px 42px rgba(12, 34, 62, 0.34);
 }
 
-.ticket-hub__icon {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-}
-
 .ticket-hub__title {
-  font-size: 2.5rem;
+  font-size: 3.17rem;
   line-height: 1;
   letter-spacing: 0.02em;
 }
@@ -1318,6 +1418,49 @@ body {
   font-size: 0.96rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.service-card--preshipment .kiosk-card-band {
+  background: linear-gradient(180deg, rgba(255, 239, 198, 0.98), rgba(255, 248, 229, 0.98));
+}
+
+.service-card--preshipment .service-media--kiosk,
+.service-card--preshipment .service-image--kiosk,
+.service-card--preshipment .kiosk-card-body {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.service-card--preshipment .service-image--kiosk {
+  z-index: 1;
+}
+
+.service-card--claims .service-media--hidden,
+.service-card--customs .service-media--hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.service-card--claims .kiosk-card-shell,
+.service-card--customs .kiosk-card-shell {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.service-card--preshipment.is-disabled {
+  cursor: not-allowed;
+}
+
+.service-card--preshipment.is-disabled .kiosk-card-shell {
+  box-shadow:
+    0 18px 38px rgba(12, 34, 62, 0.18),
+    0 0 0 1px rgba(255, 228, 138, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.service-card--preshipment.is-disabled:hover .kiosk-card-shell,
+.service-card--preshipment.is-disabled.is-selected .kiosk-card-shell {
+  transform: none;
 }
 
 .intro-animate .service-card--kiosk,
@@ -1348,6 +1491,12 @@ body {
 
 .intro-animate .service-card--kiosk:nth-child(4),
 .rebuild-sequence .service-card--kiosk:nth-child(4) {
+  animation-name: kioskCardFromCenterBottomLeft;
+  animation-delay: 0.31s;
+}
+
+.intro-animate .service-card--kiosk:nth-child(5),
+.rebuild-sequence .service-card--kiosk:nth-child(5) {
   animation-name: kioskCardFromCenterBottomRight;
   animation-delay: 0.34s;
 }
@@ -2337,14 +2486,28 @@ body {
   }
 
   .services-grid--kiosk {
-    grid-template-columns: repeat(2, minmax(340px, 1fr));
-    width: min(100%, 1040px);
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
+    column-gap: 4px;
+    width: min(100%, 1120px);
     max-width: calc(100% - 20px);
-    padding: 100px 14px 14px;
+    row-gap: 34px;
+    padding: 112px 14px 14px;
   }
 
   .service-card--kiosk {
     height: 280px;
+  }
+
+  .service-card--bottom-center {
+    margin-top: 76px;
+  }
+
+  .service-card--top-left {
+    margin-right: -28px;
+  }
+
+  .service-card--top-right {
+    margin-left: -28px;
   }
 
   .service-card--kiosk .card-title {
@@ -2352,8 +2515,9 @@ body {
   }
 
   .ticket-hub {
-    width: 210px;
-    height: 210px;
+    width: 266px;
+    height: 266px;
+    top: calc(52.5% - 50px);
   }
 
   .ticket-hub__title {
@@ -2400,6 +2564,10 @@ body {
   .service-card--kiosk {
     height: auto;
     min-height: 260px;
+  }
+
+  .service-card--bottom-center {
+    margin-top: 0;
   }
 
   .kiosk-card-shell {
