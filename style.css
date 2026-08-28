@@ -911,10 +911,10 @@ body {
 
 .services-grid--kiosk {
   position: relative;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(320px, 1fr));
   column-gap: 0;
-  row-gap: 44px;
-  width: min(100%, 1380px);
+  row-gap: 8px;
+  width: min(100%, 1180px);
   max-width: calc(100% - 24px);
   min-height: calc(100dvh - 28px);
   padding: 24px 8px 8px;
@@ -933,7 +933,7 @@ body {
 }
 
 .service-card--kiosk {
-  height: 408px;
+  height: 438px;
   perspective: none;
   opacity: 0;
 }
@@ -941,13 +941,13 @@ body {
 .service-card--top-left {
   grid-column: 1;
   grid-row: 1;
-  margin-right: -120px;
+  margin-right: -170px;
 }
 
 .service-card--top-right {
   grid-column: 3;
   grid-row: 1;
-  margin-left: -120px;
+  margin-left: -170px;
 }
 
 .service-card--bottom-left {
@@ -958,7 +958,7 @@ body {
 .service-card--bottom-center {
   grid-column: 2;
   grid-row: 2;
-  margin-top: 92px;
+  margin-top: 8px;
 }
 
 .service-card--bottom-right {
@@ -1193,8 +1193,9 @@ body {
 .kiosk-card-shell {
   position: relative;
   display: grid;
-  grid-template-rows: 72px 1fr;
-  width: 84%;
+  grid-template-rows: 82px 1fr;
+  width: 92%;
+  max-width: 560px;
   height: 100%;
   padding: 22px 24px;
   border: 4px solid #183b69;
@@ -1223,12 +1224,12 @@ body {
 
 .service-card--bottom-center .kiosk-card-shell {
   justify-self: center;
-  width: 96%;
-  max-width: 646px;
+  width: 130%;
+  max-width: 620px;
 }
 
 .kiosk-card-shell--bottom {
-  grid-template-rows: 1fr 72px;
+  grid-template-rows: 1fr 82px;
 }
 
 .service-card--kiosk:hover .kiosk-card-shell,
@@ -1246,7 +1247,8 @@ body {
   display: grid;
   place-items: center;
   margin: -22px -24px 0;
-  padding: 0 18px;
+  min-height: 82px;
+  padding: 8px 18px;
   border-bottom: 3px solid #183b69;
   background: linear-gradient(180deg, rgba(255, 254, 247, 0.98), rgba(255, 249, 231, 0.98));
 }
@@ -1293,9 +1295,9 @@ body {
 
 .service-card--kiosk .card-title {
   margin: 0;
-  font-size: clamp(1.45rem, 0.85vw + 0.95rem, 2.2rem);
+  font-size: clamp(1.22rem, 0.55vw + 0.92rem, 1.8rem);
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.08;
   letter-spacing: 0;
   color: #111111;
   text-align: center;
