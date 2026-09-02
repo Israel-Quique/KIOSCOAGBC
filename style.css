@@ -721,7 +721,9 @@ body {
   background:
     radial-gradient(circle, rgba(255, 253, 241, 0.74) 0%, rgba(255, 237, 170, 0.34) 40%, rgba(255, 220, 117, 0) 76%);
   filter: blur(26px);
+  /* Animación de espera desactivada temporalmente.
   animation: idleHaloPulse 3.8s ease-in-out infinite;
+  */
 }
 
 .idle-attractor__content {
@@ -742,7 +744,9 @@ body {
   box-shadow: none;
   color: var(--brand-white);
   backdrop-filter: none;
+  /* Animación de espera desactivada temporalmente.
   animation: idlePanelFloat 3.4s ease-in-out infinite;
+  */
 }
 
 .idle-logo-mosaic {
@@ -798,7 +802,9 @@ body {
 }
 
 .tracking-main.is-idle .idle-logo-mosaic.is-animating .idle-logo-mosaic__tile {
+  /* Animación de espera desactivada temporalmente.
   animation: idleLogoScatterAssemble 3.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  */
   animation-delay: var(--tile-delay);
 }
 
